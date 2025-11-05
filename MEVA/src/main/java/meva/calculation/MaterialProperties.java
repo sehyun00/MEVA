@@ -3,7 +3,7 @@ package meva.calculation;
 import meva.models.TestData;
 
 /**
- * 재료 물성값 계산 클래스
+ * 재료 물성값 계산 클래스 
  * 
  * @author 이태윤
  */
