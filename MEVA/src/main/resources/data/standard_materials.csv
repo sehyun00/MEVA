@@ -1,0 +1,9 @@
+Material,YoungsModulus(GPa),YieldStrength(MPa),TensileStrength(MPa),Density(kg/m3),PoissonRatio
+Steel_AISI1020,200,250,400,7850,0.29
+Steel_AISI4140,205,415,655,7850,0.29
+Aluminum_6061T6,69,276,310,2700,0.33
+Aluminum_7075T6,72,503,572,2810,0.33
+Copper_C101,110,70,220,8960,0.34
+Titanium_Ti6Al4V,114,880,950,4430,0.32
+StainlessSteel_316,200,205,515,8000,0.30
+Brass_C360,97,124,338,8500,0.31
