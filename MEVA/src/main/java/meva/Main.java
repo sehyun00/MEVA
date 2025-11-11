@@ -14,14 +14,12 @@ public class Main {
     public static void main(String[] args) {
         SwingUtilities.invokeLater(() -> {
             try {
-                // Look and Feel 설정
                 javax.swing.UIManager.setLookAndFeel(
-                    javax.swing.UIManager.getSystemLookAndFeel());
+                    javax.swing.UIManager.getSystemLookAndFeelClassName());
             } catch (Exception e) {
                 e.printStackTrace();
             }
             
-            // 메인 프레임 생성 및 표시
             MainFrame mainFrame = new MainFrame();
             mainFrame.setVisible(true);
         });
