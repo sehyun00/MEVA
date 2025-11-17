@@ -128,24 +128,6 @@ CREATE TABLE IF NOT EXISTS file (
 );
 
 -- =============================================
--- 7. 사용자 설정(User Settings) 테이블
--- =============================================
--- 애플리케이션 사용자별 설정 정보를 저장
-CREATE TABLE IF NOT EXISTS user_settings (
-    setting_id INTEGER PRIMARY KEY AUTOINCREMENT,
-    user_name VARCHAR(100) NOT NULL UNIQUE,           -- 사용자명
-    default_material_id INTEGER,                      -- 기본 재료 ID
-    default_strain_rate REAL DEFAULT 0.001,           -- 기본 변형률 속도(1/s)
-    default_temperature REAL DEFAULT 25.0,            -- 기본 시험 온도(°C)
-    graph_color_scheme VARCHAR(50) DEFAULT 'default', -- 그래프 색상 스킴
-    auto_calculate BOOLEAN DEFAULT 1,                 -- 자동 계산 활성화 여부
-    decimal_places INTEGER DEFAULT 2,                 -- 소수점 자릿수
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,   -- 생성 일시
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,   -- 수정 일시
-    FOREIGN KEY (default_material_id) REFERENCES material(material_id) ON DELETE SET NULL
-);
-
--- =============================================
 -- 인덱스 생성
 -- =============================================
 -- 자주 사용되는 쿼리의 성능 향상을 위한 인덱스
@@ -187,13 +169,6 @@ AFTER UPDATE ON analysis_result
 FOR EACH ROW
 BEGIN
     UPDATE analysis_result SET updated_at = CURRENT_TIMESTAMP WHERE result_id = NEW.result_id;
-END;
-
-CREATE TRIGGER IF NOT EXISTS update_user_settings_timestamp 
-AFTER UPDATE ON user_settings
-FOR EACH ROW
-BEGIN
-    UPDATE user_settings SET updated_at = CURRENT_TIMESTAMP WHERE setting_id = NEW.setting_id;
 END;
 
 -- =============================================
