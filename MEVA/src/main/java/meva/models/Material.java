@@ -2,23 +2,28 @@ package meva.models;
 
 /**
  * 재료 정보를 담는 데이터 모델 클래스
+ * SQLite DB의 materials 테이블과 매핑됨
  * 
- * @author 이태윤
+ * @author 이태윤 (수정: DB 연동 추가)
  */
 public class Material {
+    private int id;                // DB Primary Key
     private String name;           // 재료명
-    private double youngsModulus;  // 영률
-    private double yieldStrength;  // 항복강도
-    private double tensileStrength; // 인장강도
-    private double density;        // 밀도
+    private String category;       // 카테고리 (Metal, Plastic 등)
+    private double youngsModulus;  // 영률 (GPa)
+    private double yieldStrength;  // 항복강도 (MPa)
+    private double tensileStrength; // 인장강도 (MPa)
+    private double density;        // 밀도 (g/cm³)
     private double poissonRatio;   // 포아송비
     
-    // 생성자
+    // 기본 생성자
     public Material() {}
     
-    public Material(String name, double youngsModulus, double yieldStrength, 
+    // 전체 필드 생성자
+    public Material(String name, String category, double youngsModulus, double yieldStrength, 
                    double tensileStrength, double density, double poissonRatio) {
         this.name = name;
+        this.category = category;
         this.youngsModulus = youngsModulus;
         this.yieldStrength = yieldStrength;
         this.tensileStrength = tensileStrength;
@@ -27,8 +32,14 @@ public class Material {
     }
     
     // Getter 및 Setter 메서드들
+    public int getId() { return id; }
+    public void setId(int id) { this.id = id; }
+    
     public String getName() { return name; }
     public void setName(String name) { this.name = name; }
+    
+    public String getCategory() { return category; }
+    public void setCategory(String category) { this.category = category; }
     
     public double getYoungsModulus() { return youngsModulus; }
     public void setYoungsModulus(double youngsModulus) { this.youngsModulus = youngsModulus; }
@@ -44,4 +55,10 @@ public class Material {
     
     public double getPoissonRatio() { return poissonRatio; }
     public void setPoissonRatio(double poissonRatio) { this.poissonRatio = poissonRatio; }
+    
+    @Override
+    public String toString() {
+        return String.format("Material{id=%d, name='%s', category='%s', E=%.2f GPa, σy=%.2f MPa}",
+                           id, name, category, youngsModulus, yieldStrength);
+    }
 }
