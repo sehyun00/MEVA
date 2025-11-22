@@ -6,6 +6,10 @@ import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
 import javax.swing.table.JTableHeader;
 import java.awt.*;
+import meva.models.StressStrainPoint;
+import meva.calculation.StressStrainCalculator;
+import java.util.List;
+
 
 /**
  * 계산 결과를 표시하는 패널
@@ -142,5 +146,57 @@ public class ResultPanel extends JPanel {
      */
     public JTable getResultsTable() {
         return resultsTable;
+    }
+    
+    /**
+     * 계산 결과를 테이블에 표시
+    */
+    public void updateResults(List<StressStrainPoint> data) {
+        if (data == null || data.isEmpty()) {
+            System.err.println("No data to display in results panel");
+            return;
+        }
+        
+        try {
+            StressStrainCalculator calculator = new StressStrainCalculator();
+            
+            // 통계값 계산
+            double maxStress = calculator.findMaxStress(data);
+            double strainAtMaxStress = calculator.findStrainAtMaxStress(data);
+            
+            // 테이블 업데이트
+            updateTableValue("Max Stress", String.format("%.2f", maxStress), "MPa");
+            updateTableValue("Strain at Max", String.format("%.4f", strainAtMaxStress), "-");
+            updateTableValue("UTS", String.format("%.2f", maxStress), "MPa");
+            
+            System.out.println("Results updated successfully");
+            
+        } catch (Exception e) {
+            System.err.println("Error updating results: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+    
+    /**
+     * 테이블의 특정 행 업데이트
+     */
+    private void updateTableValue(String property, String value, String unit) {
+        try {
+            for (int i = 0; i < tableModel.getRowCount(); i++) {
+                Object propertyObj = tableModel.getValueAt(i, 0);
+                if (propertyObj != null) {
+                    String rowProperty = propertyObj.toString();
+                    if (rowProperty.contains(property) || property.contains(rowProperty)) {
+                        tableModel.setValueAt(value, i, 1);
+                        if (unit != null && !unit.isEmpty()) {
+                            tableModel.setValueAt(unit, i, 2);
+                        }
+                        break;
+                    }
+                }
+            }
+        } catch (Exception e) {
+            System.err.println("Error updating table value for " + property + ": " + e.getMessage());
+        }
     }
 }

@@ -2,6 +2,13 @@ package meva.gui;
 
 import javax.swing.*;
 import java.awt.*;
+import meva.fileio.TxtDataParser;
+import meva.calculation.StressStrainCalculator;
+import meva.models.DataPoint;
+import meva.models.StressStrainPoint;
+import javax.swing.SwingWorker;
+import java.io.IOException;
+import java.util.List;
 
 /**
  * MEVA 애플리케이션의 메인 윈도우 프레임
@@ -314,21 +321,70 @@ public class MainFrame extends JFrame {
     }
     
     private void onCalculateClicked() {
-        updateStatus("Calculating...");
+        // 1. 파일 경로 확인
+        String filePath = inputPanel.getSelectedFilePath();
+        if (filePath == null || filePath.isEmpty()) {
+            JOptionPane.showMessageDialog(this,
+                "먼저 데이터 파일을 선택해주세요.",
+                "파일 선택 필요",
+                JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+        
+        updateStatus("파일 읽는 중...");
         progressBar.setVisible(true);
         progressBar.setIndeterminate(true);
         
-        // TODO: 실제 계산 로직 연동
-        // SimulationController.calculate();
+        // 백그라운드 스레드에서 처리
+        SwingWorker<Void, Void> worker = new SwingWorker<Void, Void>() {
+            private List<StressStrainPoint> stressStrainData;
+            private String errorMessage;
+            
+            @Override
+            protected Void doInBackground() throws Exception {
+                try {
+                    // 2. 파일 파싱
+                    TxtDataParser parser = new TxtDataParser();
+                    List<DataPoint> rawData = parser.parseFile(filePath);
+                    
+                    // 3. 응력-변형률 데이터로 변환
+                    StressStrainCalculator calculator = new StressStrainCalculator();
+                    stressStrainData = calculator.convertToStressStrain(rawData);
+                    
+                } catch (IOException e) {
+                    errorMessage = "파일 읽기 실패: " + e.getMessage();
+                } catch (Exception e) {
+                    errorMessage = "계산 중 오류 발생: " + e.getMessage();
+                }
+                return null;
+            }
+            
+            @Override
+            protected void done() {
+                progressBar.setVisible(false);
+                
+                if (errorMessage != null) {
+                    JOptionPane.showMessageDialog(MainFrame.this,
+                        errorMessage,
+                        "오류",
+                        JOptionPane.ERROR_MESSAGE);
+                    updateStatus("계산 실패");
+                    return;
+                }
+                
+                // 4. 그래프에 표시
+                visualizationPanel.plotStressStrainCurve(stressStrainData);
+                
+                // 5. 결과 패널 업데이트
+                resultsPanel.updateResults(stressStrainData);
+                
+                updateStatus("계산 완료 (" + stressStrainData.size() + " 데이터 포인트)");
+            }
+        };
         
-        // 임시: 2초 후 완료
-        Timer timer = new Timer(2000, e -> {
-            progressBar.setVisible(false);
-            updateStatus("Calculation completed");
-        });
-        timer.setRepeats(false);
-        timer.start();
+        worker.execute();
     }
+    
     
     private void onResetClicked() {
         updateStatus("Input reset");
