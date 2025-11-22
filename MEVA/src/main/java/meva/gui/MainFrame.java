@@ -344,21 +344,21 @@ public class MainFrame extends JFrame {
                     // 1. 파일 파싱
                     TxtDataParser parser = new TxtDataParser();
                     List<DataPoint> rawData = parser.parseFile(filePath);
-
                     System.out.println("원본 데이터 포인트: " + rawData.size());
 
                     // 2. 응력-변형률 변환
                     StressStrainCalculator calculator = new StressStrainCalculator();
                     stressStrainData = calculator.convertToStressStrain(rawData);
 
-                    // ⭐ 3. 노이즈 제거 (스무딩)
-                    int windowSize = 20; // 윈도우 크기 (조정 가능: 10~50)
-                    stressStrainData = calculator.smoothData(stressStrainData, windowSize);
+                    // ⭐ 3. 데이터 클리닝 (음수 제거 + 파단 후 제거)
+                    stressStrainData = calculator.cleanData(stressStrainData);
 
+                    // 4. 노이즈 제거 (스무딩)
+                    int windowSize = 20;
+                    stressStrainData = calculator.smoothData(stressStrainData, windowSize);
                     System.out.println("스무딩 완료 (window size: " + windowSize + ")");
 
-                    // 4. 다운샘플링 (선택사항, 데이터가 너무 많을 때)
-                    // stressStrainData = calculator.downsample(stressStrainData, 5);
+                    System.out.println("최종 데이터 포인트: " + stressStrainData.size());
 
                 } catch (IOException e) {
                     errorMessage = "파일 읽기 실패: " + e.getMessage();
