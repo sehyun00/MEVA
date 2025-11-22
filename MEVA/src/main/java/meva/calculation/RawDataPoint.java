@@ -1,4 +1,4 @@
-package first;
+package meva.calculation;
 
 // --------------------------------------------------------------
 // RawDataPoint 클래스
