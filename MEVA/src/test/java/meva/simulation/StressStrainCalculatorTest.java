@@ -24,7 +24,7 @@ class StressStrainCalculatorTest {
         calculator = new StressStrainCalculator();
         
         // 테스트용 재료 설정 (Steel AISI 1020)
-        testMaterial = new Material("Steel_AISI1020", 200, 250, 400, 7850, 0.29);
+        testMaterial = new Material("Steel_AISI1020", "Metal", 200, 250, 400, 7850, 0.29);
         
         // 테스트용 시험 데이터 설정
         testData = new TestData();
