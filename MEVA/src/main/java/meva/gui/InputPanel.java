@@ -22,6 +22,7 @@ public class InputPanel extends JPanel {
     // private JPanel materialPropertiesPanel;  // 봉재 시편에서는 미사용
     private JPanel specimenDimensionsPanel;
     private JPanel controlButtonsPanel;
+    private JPanel fileUploadPanel;
     private JPanel presetManagementPanel;
 
     // 재료 물성 입력 필드들 (봉재 시편에서는 미사용 - 실험 데이터 기반)
