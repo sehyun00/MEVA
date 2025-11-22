@@ -554,3 +554,273 @@ bugfix/chart-display-error
 ---
 
 해피 코딩! 프로젝트 개발에 문제가 있으면 언제든지 이슈를 등록하거나 팀장에게 문의하세요. 🚀
+
+
+---
+
+## 13. Maven으로 프로젝트 실행하기
+
+### 13.1 Maven이란?
+
+Maven은 자바 프로젝트의 빌드, 의존성 관리, 배포를 자동화하는 도구입니다. MEVA 프로젝트는 Maven을 사용하여 JFreeChart 등의 외부 라이브러리를 자동으로 관리합니다.
+
+### 13.2 사전 요구사항
+
+#### Maven 설치 확인
+
+터미널/명령 프롬프트에서 다음 명령어를 실행하세요:
+
+```bash
+mvn -version
+```
+
+**정상 출력 예시:**
+```
+Apache Maven 3.9.5
+Maven home: /usr/local/maven
+Java version: 17.0.9
+```
+
+#### Maven 미설치 시 설치 방법
+
+**Windows:**
+1. [Maven 공식 사이트](https://maven.apache.org/download.cgi)에서 다운로드
+2. 압축 해제 후 환경변수 설정
+3. `MAVEN_HOME` 및 `Path` 설정
+
+**macOS:**
+```bash
+brew install maven
+```
+
+**Linux (Ubuntu/Debian):**
+```bash
+sudo apt install maven
+```
+
+### 13.3 프로젝트 Import
+
+#### IntelliJ IDEA
+
+1. **File → Open**
+2. MEVA 프로젝트 폴더 선택
+3. `pom.xml` 파일이 있는지 확인
+4. "Maven 프로젝트로 Import" 팝업이 뜨면 **Import** 클릭
+5. 우측 Maven 탭에서 Dependencies 자동 다운로드 대기
+
+#### Eclipse
+
+1. **File → Import → Existing Maven Projects**
+2. MEVA 프로젝트 폴더 선택
+3. `pom.xml` 선택 → **Finish**
+4. **Project → Update Maven Project** (Alt+F5)
+
+#### VS Code
+
+1. **Extension Pack for Java** 설치
+2. MEVA 프로젝트 폴더 열기
+3. `pom.xml` 자동 인식 대기
+4. 하단 상태바에서 "Synchronizing" 완료 확인
+
+### 13.4 프로젝트 실행 방법
+
+#### 방법 1: IDE에서 직접 실행 (권장)
+
+**IntelliJ IDEA:**
+```
+1. src/main/java/meva/Main.java 파일 열기
+2. 파일 내 main 메서드 옆 초록 실행 버튼 클릭
+3. 또는 Shift+F10 (Run)
+```
+
+**Eclipse:**
+```
+1. src/main/java/meva/Main.java 파일 우클릭
+2. Run As → Java Application
+```
+
+**VS Code:**
+```
+1. Main.java 파일 열기
+2. 우측 상단 Run 버튼 클릭
+3. 또는 F5 (Debug)
+```
+
+#### 방법 2: Maven 명령어로 실행
+
+**터미널/명령 프롬프트:**
+```bash
+# 프로젝트 루트 디렉토리로 이동
+cd MEVA
+
+# 빌드 및 실행
+mvn clean compile exec:java
+```
+
+**또는 간단히:**
+```bash
+mvn exec:java
+```
+
+### 13.5 의존성(Dependencies) 관리
+
+프로젝트에 필요한 라이브러리들이 자동으로 다운로드됩니다:
+
+- **JFreeChart** 1.5.4 (그래프 시각화)
+- 기타 필요한 라이브러리
+
+#### 의존성 확인
+
+```bash
+# 의존성 트리 출력
+mvn dependency:tree
+
+# 의존성 강제 업데이트
+mvn clean install -U
+```
+
+### 13.6 주요 Maven 명령어
+
+| 명령어 | 설명 |
+|--------|------|
+| `mvn clean` | 빌드 결과물 삭제 (target 폴더) |
+| `mvn compile` | 소스 코드 컴파일 |
+| `mvn test` | 테스트 실행 |
+| `mvn package` | JAR 파일 생성 |
+| `mvn install` | 로컬 저장소에 설치 |
+| `mvn exec:java` | 프로그램 실행 |
+| `mvn clean install` | 전체 빌드 (클린 + 컴파일 + 테스트 + 패키징) |
+| `mvn dependency:tree` | 의존성 트리 확인 |
+
+### 13.7 pom.xml 파일 구조
+
+Maven 설정 파일인 `pom.xml`의 주요 구조:
+
+```xml
+<project>
+    <groupId>com.meva</groupId>          <!-- 그룹 ID -->
+    <artifactId>meva</artifactId>        <!-- 프로젝트 이름 -->
+    <version>1.0-SNAPSHOT</version>      <!-- 버전 -->
+    
+    <properties>
+        <maven.compiler.source>17</maven.compiler.source>  <!-- Java 버전 -->
+        <maven.compiler.target>17</maven.compiler.target>
+        <exec.mainClass>meva.Main</exec.mainClass>        <!-- 메인 클래스 -->
+    </properties>
+    
+    <dependencies>
+        <!-- JFreeChart -->
+        <dependency>
+            <groupId>org.jfree</groupId>
+            <artifactId>jfreechart</artifactId>
+            <version>1.5.4</version>
+        </dependency>
+    </dependencies>
+</project>
+```
+
+### 13.8 문제 해결 (Troubleshooting)
+
+#### 문제 1: "mvn 명령어를 찾을 수 없습니다"
+
+**원인:** Maven이 설치되지 않았거나 환경변수 미설정
+
+**해결:**
+```bash
+# Maven 설치 확인
+mvn -version
+
+# 없으면 위의 13.2 섹션 참고하여 설치
+```
+
+#### 문제 2: "JFreeChart를 찾을 수 없습니다"
+
+**원인:** 의존성 다운로드 실패
+
+**해결:**
+```bash
+# 의존성 강제 업데이트
+mvn clean install -U
+
+# Maven 캐시 삭제 후 재시도
+rm -rf ~/.m2/repository
+mvn clean install
+```
+
+#### 문제 3: "Java 버전이 맞지 않습니다"
+
+**원인:** Java 17 미만 버전 사용
+
+**해결:**
+1. Java 17 이상 설치
+2. 환경변수 `JAVA_HOME` 확인
+3. IDE에서 Project SDK 설정 확인
+
+```bash
+# Java 버전 확인
+java -version
+
+# Java 17 이상이어야 함
+```
+
+#### 문제 4: "클래스를 찾을 수 없습니다 (NoClassDefFoundError)"
+
+**원인:** 컴파일 오류 또는 의존성 누락
+
+**해결:**
+```bash
+# 전체 클린 빌드
+mvn clean compile
+
+# IDE 새로고침
+# IntelliJ: Ctrl+Shift+O
+# Eclipse: Alt+F5 → Update Maven Project
+```
+
+#### 문제 5: "포트가 이미 사용 중입니다"
+
+**원인:** 프로그램이 이미 실행 중
+
+**해결:**
+- 기존 프로세스 종료 후 재실행
+- 또는 IDE에서 Stop 버튼 클릭
+
+### 13.9 Git Pull 후 해야 할 일
+
+팀원이 `pom.xml`을 수정했거나 새로운 의존성이 추가된 경우:
+
+```bash
+# 1. 최신 코드 받기
+git pull origin develop
+
+# 2. Maven 의존성 업데이트
+mvn clean install
+
+# 3. IDE 새로고침
+# IntelliJ: File → Reload All from Disk
+# Eclipse: Alt+F5 → Update Maven Project
+# VS Code: 자동 갱신 (또는 Command Palette → Java: Clean Java Language Server Workspace)
+```
+
+### 13.10 빠른 시작 체크리스트
+
+새로운 팀원이 프로젝트를 시작할 때:
+
+```
+□ Java 17 이상 설치 확인 (java -version)
+□ Maven 설치 확인 (mvn -version)
+□ Git Clone (git clone https://github.com/sehyun00/MEVA.git)
+□ 프로젝트 폴더로 이동 (cd MEVA)
+□ Maven 의존성 다운로드 (mvn clean install)
+□ IDE에서 Maven 프로젝트로 Import
+□ Main.java 실행
+□ 프로그램 정상 작동 확인
+```
+
+### 13.11 추가 자료
+
+- [Maven 공식 문서](https://maven.apache.org/guides/index.html)
+- [Maven 시작하기 (한글)](https://wikidocs.net/book/1910)
+- [JFreeChart 문서](https://www.jfree.org/jfreechart/)
+
+---
