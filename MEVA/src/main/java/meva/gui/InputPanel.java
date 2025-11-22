@@ -5,6 +5,7 @@ package meva.gui;
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.ActionListener;
+import javax.swing.filechooser.FileNameExtensionFilter;
 
 /**
  * 사용자 입력을 받는 패널
@@ -32,6 +33,11 @@ public class InputPanel extends JPanel {
     // 시편 치수 입력 필드들 (봉재용)
     private JTextField diameterField;  // 초기 직경 (D₀)
     private JTextField gaugeLengthField;  // 초기 게이지 길이 (L₀)
+
+        // 데이터 파일 업로드 컴포넌트
+    private JButton loadFileButton;
+    private JLabel filePathLabel;
+    private String selectedFilePath;
 
     // 제어 버튼들
     private JButton calculateButton;
@@ -72,6 +78,9 @@ public class InputPanel extends JPanel {
         // 제어 버튼 패널 초기화
         controlButtonsPanel = createControlButtonsPanel();
 
+
+                // 데이터 파일 업로드 초기화
+                fileUploadPanel = createFileUploadPanel();
         // 프리셋 관리 패널 초기화
         presetManagementPanel = createPresetManagementPanel();
     }
@@ -90,6 +99,9 @@ public class InputPanel extends JPanel {
 
         add(specimenDimensionsPanel);
         add(Box.createRigidArea(new Dimension(0, 20)));
+
+                add(fileUploadPanel);
+                add(Box.createRigidArea(new Dimension(0, 20)));
 
         add(controlButtonsPanel);
         add(Box.createRigidArea(new Dimension(0, 20)));
@@ -127,6 +139,44 @@ public class InputPanel extends JPanel {
         panel.add(gaugeLengthField, gbc);
         gbc.gridx = 2;
         panel.add(new JLabel("mm"), gbc);
+
+        return panel;
+    }
+
+        /**
+     * 데이터 파일 업로드 패널 생성
+     */
+    private JPanel createFileUploadPanel() {
+        JPanel panel = new JPanel(new GridBagLayout());
+        panel.setBorder(BorderFactory.createTitledBorder("데이터 파일 업로드"));
+
+        GridBagConstraints gbc = new GridBagConstraints();
+        gbc.fill = GridBagConstraints.HORIZONTAL;
+        gbc.insets = new Insets(5, 5, 5, 5);
+
+        // 파일 선택 버튼
+        gbc.gridx = 0; gbc.gridy = 0;
+        loadFileButton = new JButton("파일 선택...");
+        loadFileButton.setPreferredSize(new Dimension(120, 30));
+        loadFileButton.addActionListener(e -> {
+            JFileChooser fileChooser = new JFileChooser();
+            fileChooser.setFileFilter(new javax.swing.filechooser.FileNameExtensionFilter(
+                "Text Files (*.txt)", "txt"
+            ));
+            int result = fileChooser.showOpenDialog(this);
+            if (result == JFileChooser.APPROVE_OPTION) {
+                selectedFilePath = fileChooser.getSelectedFile().getAbsolutePath();
+                filePathLabel.setText("파일: " + fileChooser.getSelectedFile().getName());
+            }
+        });
+        panel.add(loadFileButton, gbc);
+
+        // 파일 경로 표시 레이블
+        gbc.gridx = 1; gbc.gridwidth = 2;
+        filePathLabel = new JLabel("파일이 선택되지 않음");
+        filePathLabel.setFont(new Font("Dialog", Font.PLAIN, 11));
+        filePathLabel.setForeground(Color.GRAY);
+        panel.add(filePathLabel, gbc);
 
         return panel;
     }
@@ -232,6 +282,13 @@ public class InputPanel extends JPanel {
             return 50.0;
         }
     }
+
+        /**
+             * 선택된 파일 경로 가져오기
+                  */
+        public String getSelectedFilePath() {
+                    return selectedFilePath;
+                }
 
     /**
      * 초기 단면적 (A₀) 계산
