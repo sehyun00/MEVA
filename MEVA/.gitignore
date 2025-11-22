@@ -1,2 +1,11 @@
-/main/
-/test/
+# 컴파일된 클래스 파일 폴더 무시
+bin/
+target/
+build/
+*.class
+
+# IDE 설정 파일 (선택사항)
+.classpath
+.project
+.settings/
+.vscode/
