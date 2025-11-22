@@ -26,12 +26,12 @@ public class MainFrame extends JFrame {
     private GraphPanel visualizationPanel;
     private ResultPanel resultsPanel;
     private JPanel statusBar;
-    
+
     // 상태바 컴포넌트
     private JLabel statusLabel;
     private JProgressBar progressBar;
     private JLabel timeLabel;
-    
+
     /**
      * MainFrame 생성자
      */
@@ -41,7 +41,7 @@ public class MainFrame extends JFrame {
         setupLayout();
         setupFrame();
     }
-    
+
     /**
      * Look and Feel 초기화
      */
@@ -58,7 +58,7 @@ public class MainFrame extends JFrame {
             }
         }
     }
-    
+
     /**
      * 모든 컴포넌트 초기화
      */
@@ -66,28 +66,28 @@ public class MainFrame extends JFrame {
         // MenuBar 초기화
         menuBar = new MenuBar();
         setupMenuBarListeners();
-        
+
         // ToolBar 초기화
         toolBar = createToolBar();
-        
+
         // 메인 패널 초기화 (BorderLayout)
         mainPanel = new JPanel(new BorderLayout());
-        
+
         // InputPanel 초기화 (WEST)
         inputPanel = new InputPanel();
         setupInputPanelListeners();
-        
+
         // VisualizationPanel 초기화 (CENTER)
         visualizationPanel = new GraphPanel();
         setupGraphPanelListeners();
-        
+
         // ResultsPanel 초기화 (EAST)
         resultsPanel = new ResultPanel();
-        
+
         // StatusBar 초기화 (SOUTH)
         statusBar = createStatusBar();
     }
-    
+
     /**
      * MenuBar 이벤트 리스너 설정
      */
@@ -112,7 +112,7 @@ public class MainFrame extends JFrame {
         menuBar.setHelpUserGuideListener(e -> onUserGuide());
         menuBar.setHelpAboutListener(e -> onAbout());
     }
-    
+
     /**
      * InputPanel 이벤트 리스너 설정
      */
@@ -124,7 +124,7 @@ public class MainFrame extends JFrame {
         inputPanel.setSavePresetListener(e -> onSavePreset());
         inputPanel.setDeletePresetListener(e -> onDeletePreset());
     }
-    
+
     /**
      * GraphPanel 이벤트 리스너 설정
      */
@@ -134,7 +134,7 @@ public class MainFrame extends JFrame {
         visualizationPanel.setResetZoomListener(e -> onResetZoom());
         visualizationPanel.setExportChartListener(e -> onExportChart());
     }
-    
+
     /**
      * 툴바 생성
      */
@@ -142,7 +142,7 @@ public class MainFrame extends JFrame {
         JToolBar toolBar = new JToolBar();
         toolBar.setFloatable(false);
         toolBar.setMargin(new Insets(5, 5, 5, 5));
-        
+
         // 툴바 버튼 추가
         toolBar.add(createToolButton("New", "New Project", this::onNewProject));
         toolBar.add(createToolButton("Open", "Open Project", this::onOpenProject));
@@ -151,10 +151,10 @@ public class MainFrame extends JFrame {
         toolBar.add(createToolButton("Export", "Export Data", this::onExportData));
         toolBar.addSeparator();
         toolBar.add(createToolButton("Settings", "Settings", this::onPreferences));
-        
+
         return toolBar;
     }
-    
+
     /**
      * 툴바 버튼 생성 헬퍼 메서드
      */
@@ -165,8 +165,7 @@ public class MainFrame extends JFrame {
         button.addActionListener(e -> action.run());
         return button;
     }
-    
-    
+
     /**
      * 상태바 생성 (SOUTH)
      */
@@ -174,54 +173,53 @@ public class MainFrame extends JFrame {
         JPanel panel = new JPanel(new BorderLayout());
         panel.setPreferredSize(new Dimension(0, 25));
         panel.setBorder(BorderFactory.createEmptyBorder(2, 5, 2, 5));
-        
+
         // 상태 레이블 (WEST)
         statusLabel = new JLabel("Ready");
         statusLabel.setFont(new Font("Dialog", Font.PLAIN, 11));
         panel.add(statusLabel, BorderLayout.WEST);
-        
+
         // 진행바 (CENTER)
         progressBar = new JProgressBar();
         progressBar.setPreferredSize(new Dimension(200, 15));
         progressBar.setVisible(false);
         panel.add(progressBar, BorderLayout.CENTER);
-        
+
         // 시간 레이블 (EAST)
         timeLabel = new JLabel(java.time.LocalTime.now().toString());
         timeLabel.setFont(new Font("Dialog", Font.PLAIN, 11));
         panel.add(timeLabel, BorderLayout.EAST);
-        
+
         // 시간 업데이트 타이머
-        Timer timer = new Timer(1000, e -> 
-            timeLabel.setText(java.time.LocalTime.now().format(
+        Timer timer = new Timer(1000, e -> timeLabel.setText(java.time.LocalTime.now().format(
                 java.time.format.DateTimeFormatter.ofPattern("HH:mm:ss"))));
         timer.start();
-        
+
         return panel;
     }
-    
+
     /**
      * 레이아웃 설정
      */
     private void setupLayout() {
         setLayout(new BorderLayout());
-        
+
         // MenuBar 설정
         setJMenuBar(menuBar);
-        
+
         // ToolBar 추가 (NORTH)
         add(toolBar, BorderLayout.NORTH);
-        
+
         // 메인 패널 구성
         mainPanel.add(inputPanel, BorderLayout.WEST);
         mainPanel.add(visualizationPanel, BorderLayout.CENTER);
         mainPanel.add(resultsPanel, BorderLayout.EAST);
         add(mainPanel, BorderLayout.CENTER);
-        
+
         // StatusBar 추가 (SOUTH)
         add(statusBar, BorderLayout.SOUTH);
     }
-    
+
     /**
      * 프레임 설정
      */
@@ -232,13 +230,13 @@ public class MainFrame extends JFrame {
         setMinimumSize(new Dimension(1024, 768));
         setLocationRelativeTo(null);
     }
-    
+
     // ========== Event Handlers ==========
-    
+
     private void onNewProject() {
         updateStatus("New project created");
     }
-    
+
     private void onOpenProject() {
         JFileChooser fileChooser = new JFileChooser();
         int result = fileChooser.showOpenDialog(this);
@@ -246,177 +244,189 @@ public class MainFrame extends JFrame {
             updateStatus("File loaded: " + fileChooser.getSelectedFile().getName());
         }
     }
-    
+
     private void onSaveProject() {
         updateStatus("Project saved");
     }
-    
+
     private void onSaveAsProject() {
         updateStatus("Project saved as...");
     }
-    
+
     private void onExportData() {
         updateStatus("Data exported");
     }
-    
+
     private void onExit() {
         System.exit(0);
     }
-    
+
     private void onUndo() {
         updateStatus("Undo");
     }
-    
+
     private void onRedo() {
         updateStatus("Redo");
     }
-    
+
     private void onPreferences() {
         updateStatus("Preferences");
     }
-    
+
     private void onZoomIn() {
         updateStatus("Zoom in");
     }
-    
+
     private void onZoomOut() {
         updateStatus("Zoom out");
     }
-    
+
     private void onResetZoom() {
         updateStatus("Reset zoom");
     }
-    
+
     private void onToggleGrid() {
         updateStatus("Toggle grid");
     }
-    
+
     private void onToggleLegend() {
         updateStatus("Toggle legend");
     }
-    
+
     private void onCalculate() {
         onCalculateClicked();
     }
-    
+
     private void onClearData() {
         updateStatus("Data cleared");
     }
-    
+
     private void onDataValidator() {
         updateStatus("Data validator");
     }
-    
+
     private void onUserGuide() {
         updateStatus("User guide");
     }
-    
+
     private void onAbout() {
         JOptionPane.showMessageDialog(this,
-            "MEVA - Materials Engineering Visualization and Analysis\n" +
-            "Version 1.0\n" +
-            "© 2025 MEVA Development Team",
-            "About MEVA",
-            JOptionPane.INFORMATION_MESSAGE);
+                "MEVA - Materials Engineering Visualization and Analysis\n" +
+                        "Version 1.0\n" +
+                        "© 2025 MEVA Development Team",
+                "About MEVA",
+                JOptionPane.INFORMATION_MESSAGE);
     }
-    
+
     private void onCalculateClicked() {
         // 1. 파일 경로 확인
         String filePath = inputPanel.getSelectedFilePath();
         if (filePath == null || filePath.isEmpty()) {
             JOptionPane.showMessageDialog(this,
-                "먼저 데이터 파일을 선택해주세요.",
-                "파일 선택 필요",
-                JOptionPane.WARNING_MESSAGE);
+                    "먼저 데이터 파일을 선택해주세요.",
+                    "파일 선택 필요",
+                    JOptionPane.WARNING_MESSAGE);
             return;
         }
-        
+
         updateStatus("파일 읽는 중...");
         progressBar.setVisible(true);
         progressBar.setIndeterminate(true);
-        
+
         // 백그라운드 스레드에서 처리
         SwingWorker<Void, Void> worker = new SwingWorker<Void, Void>() {
             private List<StressStrainPoint> stressStrainData;
             private String errorMessage;
-            
+
             @Override
             protected Void doInBackground() throws Exception {
                 try {
-                    // 2. 파일 파싱
+                    // 1. 파일 파싱
                     TxtDataParser parser = new TxtDataParser();
                     List<DataPoint> rawData = parser.parseFile(filePath);
-                    
-                    // 3. 응력-변형률 데이터로 변환
+
+                    System.out.println("원본 데이터 포인트: " + rawData.size());
+
+                    // 2. 응력-변형률 변환
                     StressStrainCalculator calculator = new StressStrainCalculator();
                     stressStrainData = calculator.convertToStressStrain(rawData);
-                    
+
+                    // ⭐ 3. 노이즈 제거 (스무딩)
+                    int windowSize = 20; // 윈도우 크기 (조정 가능: 10~50)
+                    stressStrainData = calculator.smoothData(stressStrainData, windowSize);
+
+                    System.out.println("스무딩 완료 (window size: " + windowSize + ")");
+
+                    // 4. 다운샘플링 (선택사항, 데이터가 너무 많을 때)
+                    // stressStrainData = calculator.downsample(stressStrainData, 5);
+
                 } catch (IOException e) {
                     errorMessage = "파일 읽기 실패: " + e.getMessage();
+                    e.printStackTrace();
                 } catch (Exception e) {
                     errorMessage = "계산 중 오류 발생: " + e.getMessage();
+                    e.printStackTrace();
                 }
                 return null;
             }
-            
+
             @Override
             protected void done() {
                 progressBar.setVisible(false);
-                
+
                 if (errorMessage != null) {
                     JOptionPane.showMessageDialog(MainFrame.this,
-                        errorMessage,
-                        "오류",
-                        JOptionPane.ERROR_MESSAGE);
+                            errorMessage,
+                            "오류",
+                            JOptionPane.ERROR_MESSAGE);
                     updateStatus("계산 실패");
                     return;
                 }
-                
+
                 // 4. 그래프에 표시
                 visualizationPanel.plotStressStrainCurve(stressStrainData);
-                
+
                 // 5. 결과 패널 업데이트
                 resultsPanel.updateResults(stressStrainData);
-                
+
                 updateStatus("계산 완료 (" + stressStrainData.size() + " 데이터 포인트)");
             }
         };
-        
+
         worker.execute();
     }
-    
-    
+
     private void onResetClicked() {
         updateStatus("Input reset");
     }
-    
+
     private void onClearGraphClicked() {
         updateStatus("Graph cleared");
     }
-    
+
     private void onPresetChanged() {
         updateStatus("Preset changed");
     }
-    
+
     private void onSavePreset() {
         updateStatus("Preset saved");
     }
-    
+
     private void onDeletePreset() {
         updateStatus("Preset deleted");
     }
-    
+
     private void onExportChart() {
         updateStatus("Chart exported");
     }
-    
+
     /**
      * 상태바 메시지 업데이트
      */
     private void updateStatus(String message) {
         statusLabel.setText(message);
     }
-    
+
     /**
      * 메인 메서드 - 애플리케이션 실행
      */

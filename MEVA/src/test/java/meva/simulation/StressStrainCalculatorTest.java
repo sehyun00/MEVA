@@ -43,5 +43,6 @@ class StressStrainCalculatorTest {
     @Test
     void testInvalidInputHandling() {
         // TODO: 잘못된 입력값 처리 테스트
-    }
+    }   
+    
 }
