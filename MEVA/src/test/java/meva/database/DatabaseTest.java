@@ -23,13 +23,17 @@ public class DatabaseTest {
         // 3. 샘플 데이터 삽입
         System.out.println("\n[Step 2] 샘플 재료 데이터 추가 중...");
         
+        // 시뮬레이션용 필드(K, n, Ef)는 0.0 또는 임의값으로 설정
         Material aluminum = new Material(
             "Aluminum 6061", "Metal",
             68.9,    // 영률 (GPa)
             276,     // 항복강도 (MPa)
             310,     // 인장강도 (MPa)
             2.7,     // 밀도 (g/cm³)
-            0.33     // 포아송비
+            0.33,    // 포아송비
+            410.0,   // K (임의값)
+            0.05,    // n (임의값)
+            0.12     // Ef (임의값)
         );
         
         Material steel = new Material(
@@ -38,7 +42,10 @@ public class DatabaseTest {
             215,     // 항복강도 (MPa)
             505,     // 인장강도 (MPa)
             8.0,     // 밀도 (g/cm³)
-            0.29     // 포아송비
+            0.29,    // 포아송비
+            1200.0,  // K (임의값)
+            0.10,    // n (임의값)
+            0.10     // Ef (임의값)
         );
         
         Material plastic = new Material(
@@ -47,12 +54,14 @@ public class DatabaseTest {
             62,      // 항복강도 (MPa)
             72,      // 인장강도 (MPa)
             1.2,     // 밀도 (g/cm³)
-            0.37     // 포아송비
+            0.37,    // 포아송비
+            0.0, 0.0, 0.0 // 시뮬레이션 미지원
         );
         
-        dao.addMaterial(aluminum);
-        dao.addMaterial(steel);
-        dao.addMaterial(plastic);
+        // 이름 중복 방지를 위해 체크 후 추가
+        if (dao.getMaterialByName(aluminum.getName()) == null) dao.addMaterial(aluminum);
+        if (dao.getMaterialByName(steel.getName()) == null) dao.addMaterial(steel);
+        if (dao.getMaterialByName(plastic.getName()) == null) dao.addMaterial(plastic);
         
         // 4. 전체 데이터 조회
         System.out.println("\n[Step 3] 저장된 재료 목록 조회:");
@@ -67,16 +76,7 @@ public class DatabaseTest {
             System.out.println();
         }
         
-        // 5. 특정 ID로 검색
-        System.out.println("[Step 4] ID=1 재료 검색:");
-        Material found = dao.getMaterialById(1);
-        if (found != null) {
-            System.out.println("  → " + found.toString());
-        } else {
-            System.out.println("  → 결과를 찾을 수 없습니다.");
-        }
-        
-        // 6. 이름으로 검색
+        // 5. 이름으로 검색
         System.out.println("\n[Step 5] 'Aluminum 6061' 재료 검색:");
         Material foundByName = dao.getMaterialByName("Aluminum 6061");
         if (foundByName != null) {
