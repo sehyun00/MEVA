@@ -16,12 +16,18 @@ public class Material {
     private double density;        // 밀도 (g/cm³)
     private double poissonRatio;   // 포아송비
     
+    // 시뮬레이션용 추가 필드 (Hollomon 식 및 파단 기준)
+    private double strengthCoefficient; // 강도계수 K (MPa)
+    private double hardeningExponent;   // 가공경화지수 n
+    private double fractureStrain;      // 파단변형률 Ef
+    
     // 기본 생성자
     public Material() {}
     
-    // 전체 필드 생성자
+    // 전체 필드 생성자 (DB 조회 및 시뮬레이션용)
     public Material(String name, String category, double youngsModulus, double yieldStrength, 
-                   double tensileStrength, double density, double poissonRatio) {
+                   double tensileStrength, double density, double poissonRatio,
+                   double strengthCoefficient, double hardeningExponent, double fractureStrain) {
         this.name = name;
         this.category = category;
         this.youngsModulus = youngsModulus;
@@ -29,6 +35,9 @@ public class Material {
         this.tensileStrength = tensileStrength;
         this.density = density;
         this.poissonRatio = poissonRatio;
+        this.strengthCoefficient = strengthCoefficient;
+        this.hardeningExponent = hardeningExponent;
+        this.fractureStrain = fractureStrain;
     }
     
     // Getter 및 Setter 메서드들
@@ -56,9 +65,18 @@ public class Material {
     public double getPoissonRatio() { return poissonRatio; }
     public void setPoissonRatio(double poissonRatio) { this.poissonRatio = poissonRatio; }
     
+    public double getStrengthCoefficient() { return strengthCoefficient; }
+    public void setStrengthCoefficient(double strengthCoefficient) { this.strengthCoefficient = strengthCoefficient; }
+    
+    public double getHardeningExponent() { return hardeningExponent; }
+    public void setHardeningExponent(double hardeningExponent) { this.hardeningExponent = hardeningExponent; }
+    
+    public double getFractureStrain() { return fractureStrain; }
+    public void setFractureStrain(double fractureStrain) { this.fractureStrain = fractureStrain; }
+    
     @Override
     public String toString() {
-        return String.format("Material{id=%d, name='%s', category='%s', E=%.2f GPa, σy=%.2f MPa}",
-                           id, name, category, youngsModulus, yieldStrength);
+        return String.format("Material{id=%d, name='%s', category='%s', E=%.2f GPa, σy=%.2f MPa, K=%.2f MPa, n=%.2f}",
+                           id, name, category, youngsModulus, yieldStrength, strengthCoefficient, hardeningExponent);
     }
 }

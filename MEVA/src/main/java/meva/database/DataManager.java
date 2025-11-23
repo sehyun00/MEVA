@@ -1,60 +1,77 @@
 package meva.database;
 
 import java.util.List;
-import java.util.Map;
+import java.util.ArrayList;
+import meva.models.Material;
 
 /**
- * 데이터 관리 클래스
- * 재료 데이터베이스와 시험 데이터를 관리
+ * 데이터 관리 클래스 (통합 관리자)
+ * - 기존 MaterialDatabase(HashMap)와 MaterialDAO(SQLite)를 통합하여 관리
+ * - UI 계층은 이 클래스를 통해 데이터에 접근함
  */
 public class DataManager {
     
-    private MaterialDatabase materialDB;
+    private MaterialDAO materialDAO;
     
     public DataManager() {
-        this.materialDB = new MaterialDatabase();
+        this.materialDAO = new MaterialDAO();
     }
     
     /**
-     * 재료 데이터베이스 초기화
+     * 데이터베이스 초기화
+     * - 테이블 생성 및 초기 데이터 로드 확인
      */
     public void initializeDatabase() {
-        materialDB.loadStandardMaterials();
+        // 1. 테이블 생성
+        DatabaseManager.initializeDatabase();
+        
+        // 2. 데이터 확인 및 초기화 (비어있으면 샘플 데이터 추가)
+        if (getAllMaterials().isEmpty()) {
+            addSampleDataToDB();
+        }
     }
     
     /**
-     * 재료명으로 물성값 조회
-     * @param materialName 재료명
-     * @return 물성값 맵
+     * 모든 재료 목록 반환 (콤보박스용)
      */
-    public Map<String, Double> getMaterialProperties(String materialName) {
-        return materialDB.getMaterialProperties(materialName);
+    public List<String> getMaterialNames() {
+        List<Material> materials = materialDAO.getAllMaterials();
+        List<String> names = new ArrayList<>();
+        for (Material m : materials) {
+            names.add(m.getName());
+        }
+        return names;
     }
     
     /**
-     * 표준 재료 목록 조회
-     * @return 표준 재료 목록
+     * 이름으로 재료 객체 반환
      */
-    public List<String> getStandardMaterialNames() {
-        return materialDB.getStandardMaterialNames();
+    public Material getMaterialByName(String name) {
+        return materialDAO.getMaterialByName(name);
     }
     
     /**
-     * 새로운 재료 추가
-     * @param materialName 재료명
-     * @param properties 물성값
-     * @return 추가 성공 여부
+     * 모든 재료 객체 리스트 반환
      */
-    public boolean addMaterial(String materialName, Map<String, Double> properties) {
-        return materialDB.addMaterial(materialName, properties);
+    public List<Material> getAllMaterials() {
+        return materialDAO.getAllMaterials();
     }
     
     /**
-     * 재료 삭제
-     * @param materialName 삭제할 재료명
-     * @return 삭제 성공 여부
+     * 샘플 데이터 DB 추가 (초기 실행 시)
      */
-    public boolean removeMaterial(String materialName) {
-        return materialDB.removeMaterial(materialName);
+    private void addSampleDataToDB() {
+        System.out.println("[DataManager] DB가 비어있어 샘플 데이터를 추가합니다.");
+        
+        // 표준 재료 데이터 (CSV 내용 기반)
+        addMaterialSafely(new Material("Steel_AISI1020", "Metal", 200, 250, 400, 7.85, 0.29, 530, 0.26, 0.25));
+        addMaterialSafely(new Material("Aluminum_6061T6", "Metal", 69, 276, 310, 2.70, 0.33, 410, 0.05, 0.12));
+        addMaterialSafely(new Material("Titanium_Ti6Al4V", "Metal", 114, 880, 950, 4.43, 0.32, 1200, 0.10, 0.10));
+    }
+    
+    private void addMaterialSafely(Material material) {
+        if (materialDAO.getMaterialByName(material.getName()) == null) {
+            materialDAO.addMaterial(material);
+        }
     }
 }
