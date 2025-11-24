@@ -6,9 +6,12 @@ import meva.fileio.TxtDataParser;
 import meva.calculation.StressStrainCalculator;
 import meva.models.DataPoint;
 import meva.models.StressStrainPoint;
+import meva.models.Experiment;
+import meva.database.ExperimentDAO;
 import javax.swing.SwingWorker;
 import java.io.IOException;
 import java.util.List;
+import java.time.LocalDate;
 
 /**
  * MEVA 애플리케이션의 메인 윈도우 프레임
@@ -31,6 +34,9 @@ public class MainFrame extends JFrame {
     private JLabel statusLabel;
     private JProgressBar progressBar;
     private JLabel timeLabel;
+    
+    // 현재 실험 ID (저장된 실험 추적용)
+    private int currentExperimentId = -1;
 
     /**
      * MainFrame 생성자
@@ -83,6 +89,7 @@ public class MainFrame extends JFrame {
 
         // ResultsPanel 초기화 (EAST)
         resultsPanel = new ResultPanel();
+        setupResultPanelListeners();
 
         // StatusBar 초기화 (SOUTH)
         statusBar = createStatusBar();
@@ -133,6 +140,13 @@ public class MainFrame extends JFrame {
         visualizationPanel.setZoomOutListener(e -> onZoomOut());
         visualizationPanel.setResetZoomListener(e -> onResetZoom());
         visualizationPanel.setExportChartListener(e -> onExportChart());
+    }
+    
+    /**
+     * ResultPanel 이벤트 리스너 설정
+     */
+    private void setupResultPanelListeners() {
+        resultsPanel.setSaveButtonListener(e -> onSaveResultsClicked());
     }
 
     /**
@@ -234,6 +248,8 @@ public class MainFrame extends JFrame {
     // ========== Event Handlers ==========
 
     private void onNewProject() {
+        currentExperimentId = -1;
+        resultsPanel.clearResults();
         updateStatus("New project created");
     }
 
@@ -365,6 +381,9 @@ public class MainFrame extends JFrame {
                     // 5. 계산 결과 생성
                     maxStress = calculator.findMaxStress(stressStrainData);
                     strainAtMaxStress = calculator.findStrainAtMaxStress(stressStrainData);
+                    
+                    // 6. DB에 실험 데이터 저장
+                    saveExperimentToDatabase(filePath, maxStress, strainAtMaxStress);
 
                 } catch (IOException e) {
                     errorMessage = "파일 읽기 실패: " + e.getMessage();
@@ -411,14 +430,66 @@ public class MainFrame extends JFrame {
                 };
                 resultsPanel.updateResults(resultsData);
 
-                updateStatus("계산 완료 (" + stressStrainData.size() + " 데이터 포인트)");
+                updateStatus("계산 완료 (" + stressStrainData.size() + " 데이터 포인트) - 실험 ID: " + currentExperimentId);
             }
         };
 
         worker.execute();
     }
+    
+    /**
+     * 실험 데이터를 데이터베이스에 저장
+     */
+    private void saveExperimentToDatabase(String filePath, double maxStress, double strainAtMaxStress) {
+        try {
+            // Experiment 객체 생성
+            Experiment exp = new Experiment();
+            exp.setMaterialId(1); // 기본 재료 ID (TODO: 사용자 선택 기능 추가)
+            exp.setSpecimenDiameter(inputPanel.getInitialDiameter());
+            exp.setGaugeLength(inputPanel.getGaugeLength());
+            exp.setCrossSectionArea(inputPanel.getInitialCrossSection());
+            exp.setTestDate(LocalDate.now().toString());
+            exp.setDataFilePath(filePath);
+            exp.setRemarks("자동 저장된 실험");
+            
+            // DAO를 통해 저장
+            ExperimentDAO dao = new ExperimentDAO();
+            currentExperimentId = dao.saveExperiment(exp);
+            
+            if (currentExperimentId > 0) {
+                // 계산 결과 저장
+                dao.saveCalculationResults(currentExperimentId, maxStress, strainAtMaxStress, maxStress);
+                System.out.println("실험 데이터 DB 저장 성공 (ID: " + currentExperimentId + ")");
+            } else {
+                System.err.println("실험 데이터 DB 저장 실패");
+            }
+        } catch (Exception e) {
+            System.err.println("데이터베이스 저장 오류: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+    
+    /**
+     * Save Results 버튼 클릭 이벤트
+     */
+    private void onSaveResultsClicked() {
+        if (currentExperimentId <= 0) {
+            JOptionPane.showMessageDialog(this,
+                "먼저 Calculate 버튼을 누러 계산을 수행하세요.",
+                "계산 필요",
+                JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+        
+        JOptionPane.showMessageDialog(this,
+            "계산 결과가 데이터베이스에 저장되었습니다.\n실험 ID: " + currentExperimentId,
+            "저장 완료",
+            JOptionPane.INFORMATION_MESSAGE);
+        updateStatus("결과 저장 완료 (ID: " + currentExperimentId + ")");
+    }
 
     private void onResetClicked() {
+        currentExperimentId = -1;
         updateStatus("Input reset");
     }
 
