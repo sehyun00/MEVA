@@ -179,6 +179,29 @@ public class InputPanel extends JPanel {
         filePathLabel.setForeground(Color.GRAY);
         panel.add(filePathLabel, gbc);
 
+                // 이전 실험 불러오기 버튼
+        gbc.gridx = 0; gbc.gridy = 1; gbc.gridwidth = 3;
+        JButton loadPreviousButton = new JButton("이전 실험 불러오기");
+        loadPreviousButton.setPreferredSize(new Dimension(200, 30));
+        loadPreviousButton.addActionListener(e -> {
+            LoadExperimentDialog dialog = new LoadExperimentDialog(
+                (java.awt.Frame) javax.swing.SwingUtilities.getWindowAncestor(this)
+            );
+            dialog.setVisible(true);
+            
+            meva.models.Experiment exp = dialog.getSelectedExperiment();
+            if (exp != null) {
+                // 시편 치수 업데이트
+                diameterField.setText(String.valueOf(exp.getSpecimenDiameter()));
+                gaugeLengthField.setText(String.valueOf(exp.getGaugeLength()));
+                javax.swing.JOptionPane.showMessageDialog(this,
+                    "실험 데이터를 불러왔습니다: " + exp.getMaterialName(),
+                    "성공",
+                    javax.swing.JOptionPane.INFORMATION_MESSAGE);
+            }
+        });
+        panel.add(loadPreviousButton, gbc);
+
         return panel;
     }
 
