@@ -6,6 +6,15 @@ import javax.swing.*;
 import java.awt.*;
 import java.awt.event.ActionListener;
 import javax.swing.filechooser.FileNameExtensionFilter;
+import javax.swing.JTabbedPane;
+import javax.swing.JTable;
+import javax.swing.JScrollPane;
+import javax.swing.JTextField;
+import javax.swing.JComboBox;
+import javax.swing.JLabel;
+import javax.swing.BorderFactory;
+import java.awt.BorderLayout;
+import java.awt.FlowLayout;
 
 /**
  * 사용자 입력을 받는 패널
@@ -90,24 +99,108 @@ public class InputPanel extends JPanel {
      * 레이아웃 설정
      */
     private void setupLayout() {
-        setLayout(new BoxLayout(this, BoxLayout.Y_AXIS));
-        setPreferredSize(new Dimension(300, 0));
+                // JTabbedPane 생성
+        JTabbedPane tabbedPane = new JTabbedPane();
+        
+        // Tab 1: 새 실험 (기존 패널들)
+        JPanel newExperimentPanel = createNewExperimentPanel();
+        tabbedPane.addTab("📂 새 실험", newExperimentPanel);
+        
+        // Tab 2: 이전 실험 불러오기
+        JPanel loadExperimentPanel = createLoadExperimentPanel();
+        tabbedPane.addTab("📋 이전 실험 불러오기", loadExperimentPanel);
+        
+        // 메인 레이아웃 설정
+        setLayout(new BorderLayout());
+        add(tabbedPane, BorderLayout.CENTER);
         setBorder(BorderFactory.createEmptyBorder(15, 15, 15, 15));
 
-        // 패널들 추가 (Material Properties 패널 제외)
-        // add(materialPropertiesPanel);
-        // add(Box.createRigidArea(new Dimension(0, 20)));
+            /**
+     * Tab 1: 새 실험 패널 생성 (기존 패널들을 포함)
+     */
+    private JPanel createNewExperimentPanel() {
+        JPanel panel = new JPanel();
+        panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
+        
+        // 기존 패널들 추가
+        panel.add(specimenDimensionsPanel);
+        panel.add(Box.createRigidArea(new Dimension(0, 20)));
+        
+        panel.add(fileUploadPanel);
+        panel.add(Box.createRigidArea(new Dimension(0, 20)));
+        
+        panel.add(controlButtonsPanel);
+        panel.add(Box.createRigidArea(new Dimension(0, 20)));
+        
+        panel.add(presetManagementPanel);
+        
+        return panel;
+    }
 
-        add(specimenDimensionsPanel);
-        add(Box.createRigidArea(new Dimension(0, 20)));
-
-                add(fileUploadPanel);
-                add(Box.createRigidArea(new Dimension(0, 20)));
-
-        add(controlButtonsPanel);
-        add(Box.createRigidArea(new Dimension(0, 20)));
-
-        add(presetManagementPanel);
+            /**
+     * Tab 2: 이전 실험 불러오기 패널 생성
+     */
+    private JPanel createLoadExperimentPanel() {
+        JPanel panel = new JPanel(new BorderLayout(10, 10));
+        panel.setBorder(BorderFactory.createEmptyBorder(15, 15, 15, 15));
+        
+        // 상단 검색 및 필터 패널
+        JPanel filterPanel = new JPanel();
+        filterPanel.setLayout(new BoxLayout(filterPanel, BoxLayout.Y_AXIS));
+        
+        // 검색 필드
+        JPanel searchPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        searchPanel.add(new JLabel("🔍 검색:"));
+        JTextField searchField = new JTextField(20);
+        searchPanel.add(searchField);
+        filterPanel.add(searchPanel);
+        
+        // 날짜 필터
+        JPanel datePanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        datePanel.add(new JLabel("📅 기간:"));
+        JTextField startDateField = new JTextField("2025-01-01", 10);
+        datePanel.add(startDateField);
+        datePanel.add(new JLabel("~"));
+        JTextField endDateField = new JTextField("2025-12-31", 10);
+        datePanel.add(endDateField);
+        filterPanel.add(datePanel);
+        
+        // 재료 필터
+        JPanel materialPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        materialPanel.add(new JLabel("🏷️ 재료:"));
+        String[] materials = {"전체", "Steel", "Aluminum", "Copper"};
+        JComboBox<String> materialCombo = new JComboBox<>(materials);
+        materialPanel.add(materialCombo);
+        filterPanel.add(materialPanel);
+        
+        panel.add(filterPanel, BorderLayout.NORTH);
+        
+        // 중앙 - 실험 목록 테이블 (기존 LoadExperimentDialog 활용)
+        JPanel tablePanel = new JPanel(new BorderLayout());
+        tablePanel.setBorder(BorderFactory.createTitledBorder("📋 저장된 실험 목록"));
+        
+        // 테이블 생성 (간단한 예시)
+        String[] columnNames = {"ID", "실험명", "날짜", "재료"};
+        Object[][] data = {};
+        JTable table = new JTable(data, columnNames);
+        JScrollPane scrollPane = new JScrollPane(table);
+        tablePanel.add(scrollPane, BorderLayout.CENTER);
+        
+        panel.add(tablePanel, BorderLayout.CENTER);
+        
+        // 하단 - 액션 버튼
+        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+        JButton loadButton = new JButton("불러오기");
+        JButton deleteButton = new JButton("삭제");
+        JButton compareButton = new JButton("비교");
+        
+        buttonPanel.add(loadButton);
+        buttonPanel.add(deleteButton);
+        buttonPanel.add(compareButton);
+        
+        panel.add(buttonPanel, BorderLayout.SOUTH);
+        
+        return panel;
     }
 
     /**
