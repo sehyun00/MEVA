@@ -6,6 +6,7 @@ import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
 import javax.swing.table.JTableHeader;
 import java.awt.*;
+import java.awt.event.ActionListener;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
@@ -29,6 +30,9 @@ public class ResultPanel extends JPanel {
     private DefaultTableModel tableModel;
     private JScrollPane scrollPane;
     private JButton saveButton;
+    
+    // 외부 리스너
+    private ActionListener saveButtonListener;
 
     // 테이블 데이터
     private static final String[] COLUMN_NAMES = {"Property", "Value", "Unit"};
@@ -80,9 +84,9 @@ public class ResultPanel extends JPanel {
         JTableHeader header = resultsTable.getTableHeader();
         header.setFont(new Font("Arial", Font.BOLD, 12));
         header.setBackground(new Color(230, 230, 230));
-        header.setReorderingAllowed(false); // 컬럼 순서 변경 불가
+        header.setReorderingAllowed(false); // 컨럼 순서 변경 불가
 
-        // 컬럼 너비 설정
+        // 컨럼 너비 설정
         resultsTable.getColumnModel().getColumn(0).setPreferredWidth(180); // Property
         resultsTable.getColumnModel().getColumn(1).setPreferredWidth(100); // Value
         resultsTable.getColumnModel().getColumn(2).setPreferredWidth(60);  // Unit
@@ -99,7 +103,14 @@ public class ResultPanel extends JPanel {
         saveButton.setForeground(Color.WHITE);
         saveButton.setFocusPainted(false);
         saveButton.setBorderPainted(false);
-        saveButton.addActionListener(e -> saveResults());
+        saveButton.addActionListener(e -> {
+            // CSV 로 저장
+            saveResultsToCSV();
+            // 외부 리스너 호출 (DB 저장)
+            if (saveButtonListener != null) {
+                saveButtonListener.actionPerformed(e);
+            }
+        });
     }
 
     /**
@@ -127,7 +138,7 @@ public class ResultPanel extends JPanel {
     /**
      * 결과를 CSV 파일로 저장합니다.
      */
-    private void saveResults() {
+    private void saveResultsToCSV() {
         // 결과가 비어있는지 확인
         boolean hasData = false;
         for (int i = 0; i < tableModel.getRowCount(); i++) {
@@ -252,7 +263,7 @@ public class ResultPanel extends JPanel {
      */
     public void updateValue(int row, Object value) {
         if (row >= 0 && row < tableModel.getRowCount()) {
-            tableModel.setValueAt(value, row, 1); // Value 컬럼 (1번 인덱스)
+            tableModel.setValueAt(value, row, 1); // Value 컨럼 (1번 인덱스)
         }
     }
 
@@ -298,5 +309,13 @@ public class ResultPanel extends JPanel {
      */
     public JTable getResultsTable() {
         return resultsTable;
+    }
+    
+    /**
+     * Save 버튼의 외부 리스너를 설정합니다.
+     * @param listener 리스너
+     */
+    public void setSaveButtonListener(ActionListener listener) {
+        this.saveButtonListener = listener;
     }
 }
