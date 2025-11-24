@@ -337,6 +337,8 @@ public class MainFrame extends JFrame {
         SwingWorker<Void, Void> worker = new SwingWorker<Void, Void>() {
             private List<StressStrainPoint> stressStrainData;
             private String errorMessage;
+            private double maxStress;
+            private double strainAtMaxStress;
 
             @Override
             protected Void doInBackground() throws Exception {
@@ -350,7 +352,7 @@ public class MainFrame extends JFrame {
                     StressStrainCalculator calculator = new StressStrainCalculator();
                     stressStrainData = calculator.convertToStressStrain(rawData);
 
-                    // ⭐ 3. 데이터 클리닝 (음수 제거 + 파단 후 제거)
+                    // 3. 데이터 클리닝 (음수 제거 + 파단 후 제거)
                     stressStrainData = calculator.cleanData(stressStrainData);
 
                     // 4. 노이즈 제거 (스무딩)
@@ -359,6 +361,10 @@ public class MainFrame extends JFrame {
                     System.out.println("스무딩 완료 (window size: " + windowSize + ")");
 
                     System.out.println("최종 데이터 포인트: " + stressStrainData.size());
+
+                    // 5. 계산 결과 생성
+                    maxStress = calculator.findMaxStress(stressStrainData);
+                    strainAtMaxStress = calculator.findStrainAtMaxStress(stressStrainData);
 
                 } catch (IOException e) {
                     errorMessage = "파일 읽기 실패: " + e.getMessage();
@@ -387,7 +393,23 @@ public class MainFrame extends JFrame {
                 visualizationPanel.plotStressStrainCurve(stressStrainData);
 
                 // 5. 결과 패널 업데이트
-                resultsPanel.updateResults(stressStrainData);
+                Object[][] resultsData = {
+                    {"Max Stress (σmax)", String.format("%.2f", maxStress), "MPa"},
+                    {"Strain at Max (εmax)", String.format("%.4f", strainAtMaxStress), "-"},
+                    {"UTS", String.format("%.2f", maxStress), "MPa"},
+                    {"Young's Modulus (E)", "-", "GPa"},
+                    {"Yield Strength (σy)", "-", "MPa"},
+                    {"Elongation", "-", "%"},
+                    {"Reduction of Area", "-", "%"},
+                    {"Toughness", "-", "MJ/m³"},
+                    {"Resilience", "-", "MJ/m³"},
+                    {"Elastic Limit", "-", "MPa"},
+                    {"Proportional Limit", "-", "MPa"},
+                    {"Necking Start Strain", "-", "-"},
+                    {"Fracture Stress", "-", "MPa"},
+                    {"Fracture Strain", "-", "-"}
+                };
+                resultsPanel.updateResults(resultsData);
 
                 updateStatus("계산 완료 (" + stressStrainData.size() + " 데이터 포인트)");
             }
