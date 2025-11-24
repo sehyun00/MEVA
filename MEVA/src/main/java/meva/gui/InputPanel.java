@@ -114,6 +114,9 @@ public class InputPanel extends JPanel {
         setLayout(new BorderLayout());
         add(tabbedPane, BorderLayout.CENTER);
         setBorder(BorderFactory.createEmptyBorder(15, 15, 15, 15));
+        
+        // 패널의 너비 설정
+        setPreferredSize(new Dimension(350, 0));
     }
 
     /**
