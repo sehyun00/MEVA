@@ -6,10 +6,14 @@ import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
 import javax.swing.table.JTableHeader;
 import java.awt.*;
+import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 import meva.models.StressStrainPoint;
 import meva.calculation.StressStrainCalculator;
 import java.util.List;
-
 
 /**
  * 계산 결과를 표시하는 패널
@@ -19,12 +23,13 @@ import java.util.List;
  * @version 1.0
  */
 public class ResultPanel extends JPanel {
-    
+
     // 결과 테이블 및 관련 컴포넌트
     private JTable resultsTable;
     private DefaultTableModel tableModel;
     private JScrollPane scrollPane;
-    
+    private JButton saveButton;
+
     // 테이블 데이터
     private static final String[] COLUMN_NAMES = {"Property", "Value", "Unit"};
     private static final Object[][] INITIAL_DATA = {
@@ -34,169 +39,264 @@ public class ResultPanel extends JPanel {
         {"Young's Modulus (E)", "-", "GPa"},
         {"Yield Strength (σy)", "-", "MPa"},
         {"Elongation", "-", "%"},
-        {"Reduction of Area", "-", "%"}
+        {"Reduction of Area", "-", "%"},
+        {"Toughness", "-", "MJ/m³"},
+        {"Resilience", "-", "MJ/m³"},
+        {"Elastic Limit", "-", "MPa"},
+        {"Proportional Limit", "-", "MPa"},
+        {"Necking Start Strain", "-", "-"},
+        {"Fracture Stress", "-", "MPa"},
+        {"Fracture Strain", "-", "-"}
     };
-    
+
     /**
      * ResultPanel 생성자
+     * 테이블 UI를 초기화하고 레이아웃을 설정합니다.
      */
     public ResultPanel() {
         initializeComponents();
         setupLayout();
     }
-    
+
     /**
-     * 모든 컴포넌트 초기화
+     * 컴포넌트들을 초기화합니다.
      */
     private void initializeComponents() {
-        // 테이블 모델 생성
+        // 테이블 모델 생성 (편집 불가능)
         tableModel = new DefaultTableModel(INITIAL_DATA, COLUMN_NAMES) {
             @Override
             public boolean isCellEditable(int row, int column) {
-                // Value 열만 편집 가능
-                return column == 1;
+                return false; // 모든 셀 편집 불가
             }
         };
-        
-        // 테이블 생성
+
+        // 테이블 생성 및 설정
         resultsTable = new JTable(tableModel);
-        resultsTable.setFont(new Font("Monospaced", Font.PLAIN, 11));
         resultsTable.setRowHeight(25);
+        resultsTable.setFont(new Font("Arial", Font.PLAIN, 12));
         resultsTable.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
-        
-        // 테이블 헤더 스타일 설정
+
+        // 테이블 헤더 설정
         JTableHeader header = resultsTable.getTableHeader();
-        header.setFont(new Font("Dialog", Font.BOLD, 11));
-        header.setBackground(new Color(224, 224, 224));
-        header.setReorderingAllowed(false);
-        
-        // 열 너비 설정
-        resultsTable.getColumnModel().getColumn(0).setPreferredWidth(120);
-        resultsTable.getColumnModel().getColumn(1).setPreferredWidth(100);
-        resultsTable.getColumnModel().getColumn(2).setPreferredWidth(60);
-        
-        // 교차 행 색상 설정
-        resultsTable.setDefaultRenderer(Object.class, new javax.swing.table.DefaultTableCellRenderer() {
-            @Override
-            public Component getTableCellRendererComponent(JTable table, Object value,
-                    boolean isSelected, boolean hasFocus, int row, int column) {
-                Component c = super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
-                if (!isSelected) {
-                    c.setBackground(row % 2 == 0 ? Color.WHITE : new Color(245, 245, 245));
-                }
-                return c;
-            }
-        });
-        
+        header.setFont(new Font("Arial", Font.BOLD, 12));
+        header.setBackground(new Color(230, 230, 230));
+        header.setReorderingAllowed(false); // 컬럼 순서 변경 불가
+
+        // 컬럼 너비 설정
+        resultsTable.getColumnModel().getColumn(0).setPreferredWidth(180); // Property
+        resultsTable.getColumnModel().getColumn(1).setPreferredWidth(100); // Value
+        resultsTable.getColumnModel().getColumn(2).setPreferredWidth(60);  // Unit
+
         // 스크롤 패널 생성
         scrollPane = new JScrollPane(resultsTable);
-        scrollPane.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
-        scrollPane.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
-        scrollPane.setBorder(BorderFactory.createEmptyBorder());
+        scrollPane.setBorder(BorderFactory.createLineBorder(Color.GRAY));
+        
+        // Save Results 버튼 생성
+        saveButton = new JButton("Save Results");
+        saveButton.setPreferredSize(new Dimension(120, 35));
+        saveButton.setFont(new Font("Arial", Font.BOLD, 12));
+        saveButton.setBackground(new Color(76, 175, 80)); // 녹색
+        saveButton.setForeground(Color.WHITE);
+        saveButton.setFocusPainted(false);
+        saveButton.setBorderPainted(false);
+        saveButton.addActionListener(e -> saveResults());
     }
-    
+
     /**
-     * 레이아웃 설정
+     * 레이아웃을 설정합니다.
      */
     private void setupLayout() {
-        setLayout(new BorderLayout());
-        setPreferredSize(new Dimension(250, 0));
-        setBorder(BorderFactory.createTitledBorder("Results"));
-        
-        // 스크롤 패널 추가
+        setLayout(new BorderLayout(5, 5));
+        setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+
+        // 타이틀 레이블
+        JLabel titleLabel = new JLabel("Results");
+        titleLabel.setFont(new Font("Arial", Font.BOLD, 14));
+        titleLabel.setBorder(BorderFactory.createEmptyBorder(0, 0, 5, 0));
+        add(titleLabel, BorderLayout.NORTH);
+
+        // 테이블 (중앙)
         add(scrollPane, BorderLayout.CENTER);
+        
+        // 버튼 패널 (하단)
+        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 5));
+        buttonPanel.add(saveButton);
+        add(buttonPanel, BorderLayout.SOUTH);
     }
-    
+
     /**
-     * 결과 표시 메서드
-     * 계산 결과를 테이블에 업데이트
+     * 결과를 CSV 파일로 저장합니다.
      */
-    public void displayResults() {
-        // TODO: 결과 표시 로직
-        // 계산 결과를 받아서 테이블의 Value 열 업데이트
-    }
-    
-    /**
-     * 특정 행의 값을 업데이트
-     */
-    public void setResultValue(int rowIndex, String value) {
-        if (rowIndex >= 0 && rowIndex < tableModel.getRowCount()) {
-            tableModel.setValueAt(value, rowIndex, 1);
+    private void saveResults() {
+        // 결과가 비어있는지 확인
+        boolean hasData = false;
+        for (int i = 0; i < tableModel.getRowCount(); i++) {
+            String value = tableModel.getValueAt(i, 1).toString();
+            if (!value.equals("-")) {
+                hasData = true;
+                break;
+            }
+        }
+        
+        if (!hasData) {
+            JOptionPane.showMessageDialog(this,
+                "No results to save. Please calculate first.",
+                "No Data",
+                JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+        
+        // 파일 선택 다이얼로그
+        JFileChooser fileChooser = new JFileChooser();
+        fileChooser.setDialogTitle("Save Results");
+        
+        // 기본 파일명 설정
+        String timestamp = new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date());
+        fileChooser.setSelectedFile(new File("MEVA_Results_" + timestamp + ".csv"));
+        
+        // CSV 파일 필터 추가
+        javax.swing.filechooser.FileNameExtensionFilter filter = 
+            new javax.swing.filechooser.FileNameExtensionFilter("CSV files (*.csv)", "csv");
+        fileChooser.setFileFilter(filter);
+        
+        int userSelection = fileChooser.showSaveDialog(this);
+        
+        if (userSelection == JFileChooser.APPROVE_OPTION) {
+            File fileToSave = fileChooser.getSelectedFile();
+            
+            // 파일 확장자 확인 및 추가
+            if (!fileToSave.getName().toLowerCase().endsWith(".csv")) {
+                fileToSave = new File(fileToSave.getAbsolutePath() + ".csv");
+            }
+            
+            // 파일이 이미 존재하는 경우 확인
+            if (fileToSave.exists()) {
+                int response = JOptionPane.showConfirmDialog(this,
+                    "File already exists. Do you want to overwrite it?",
+                    "Confirm Overwrite",
+                    JOptionPane.YES_NO_OPTION,
+                    JOptionPane.WARNING_MESSAGE);
+                    
+                if (response != JOptionPane.YES_OPTION) {
+                    return;
+                }
+            }
+            
+            // 파일 저장
+            try (FileWriter writer = new FileWriter(fileToSave)) {
+                // 헤더 정보 작성
+                writer.write("MEVA - Materials Engineering Visualization and Analysis\n");
+                writer.write("Results Export\n");
+                writer.write("Date/Time: " + new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date()) + "\n");
+                writer.write("\n");
+                
+                // 테이블 헤더 작성
+                for (int i = 0; i < tableModel.getColumnCount(); i++) {
+                    writer.write(tableModel.getColumnName(i));
+                    if (i < tableModel.getColumnCount() - 1) {
+                        writer.write(",");
+                    }
+                }
+                writer.write("\n");
+                
+                // 테이블 데이터 작성
+                for (int row = 0; row < tableModel.getRowCount(); row++) {
+                    for (int col = 0; col < tableModel.getColumnCount(); col++) {
+                        Object value = tableModel.getValueAt(row, col);
+                        writer.write(value != null ? value.toString() : "");
+                        if (col < tableModel.getColumnCount() - 1) {
+                            writer.write(",");
+                        }
+                    }
+                    writer.write("\n");
+                }
+                
+                JOptionPane.showMessageDialog(this,
+                    "Results saved successfully to:\n" + fileToSave.getAbsolutePath(),
+                    "Save Successful",
+                    JOptionPane.INFORMATION_MESSAGE);
+                    
+            } catch (IOException e) {
+                JOptionPane.showMessageDialog(this,
+                    "Error saving file: " + e.getMessage(),
+                    "Save Error",
+                    JOptionPane.ERROR_MESSAGE);
+            }
         }
     }
-    
+
     /**
-     * 모든 결과 값 초기화
+     * 결과 테이블을 업데이트합니다.
+     * 
+     * @param results 계산 결과 데이터
+     */
+    public void updateResults(Object[][] results) {
+        if (results == null) {
+            clearResults();
+            return;
+        }
+
+        for (int i = 0; i < results.length && i < tableModel.getRowCount(); i++) {
+            for (int j = 0; j < results[i].length && j < tableModel.getColumnCount(); j++) {
+                tableModel.setValueAt(results[i][j], i, j);
+            }
+        }
+        tableModel.fireTableDataChanged();
+    }
+
+    /**
+     * 특정 행의 결과값을 업데이트합니다.
+     * 
+     * @param row   행 인덱스
+     * @param value 설정할 값
+     */
+    public void updateValue(int row, Object value) {
+        if (row >= 0 && row < tableModel.getRowCount()) {
+            tableModel.setValueAt(value, row, 1); // Value 컬럼 (1번 인덱스)
+        }
+    }
+
+    /**
+     * 특정 속성명으로 결과값을 업데이트합니다.
+     * 
+     * @param property 속성명
+     * @param value    설정할 값
+     */
+    public void updateValueByProperty(String property, Object value) {
+        for (int i = 0; i < tableModel.getRowCount(); i++) {
+            String prop = tableModel.getValueAt(i, 0).toString();
+            if (prop.contains(property)) {
+                tableModel.setValueAt(value, i, 1);
+                break;
+            }
+        }
+    }
+
+    /**
+     * 모든 결과를 초기 상태("-")로 리셋합니다.
      */
     public void clearResults() {
         for (int i = 0; i < tableModel.getRowCount(); i++) {
             tableModel.setValueAt("-", i, 1);
         }
+        tableModel.fireTableDataChanged();
     }
-    
+
     /**
-     * 테이블 모델 반환
+     * 테이블 모델을 반환합니다.
+     * 
+     * @return DefaultTableModel 객체
      */
     public DefaultTableModel getTableModel() {
         return tableModel;
     }
-    
+
     /**
-     * 테이블 반환
+     * 결과 테이블을 반환합니다.
+     * 
+     * @return JTable 객체
      */
     public JTable getResultsTable() {
         return resultsTable;
-    }
-    
-    /**
-     * 계산 결과를 테이블에 표시
-    */
-    public void updateResults(List<StressStrainPoint> data) {
-        if (data == null || data.isEmpty()) {
-            System.err.println("No data to display in results panel");
-            return;
-        }
-        
-        try {
-            StressStrainCalculator calculator = new StressStrainCalculator();
-            
-            // 통계값 계산
-            double maxStress = calculator.findMaxStress(data);
-            double strainAtMaxStress = calculator.findStrainAtMaxStress(data);
-            
-            // 테이블 업데이트
-            updateTableValue("Max Stress", String.format("%.2f", maxStress), "MPa");
-            updateTableValue("Strain at Max", String.format("%.4f", strainAtMaxStress), "-");
-            updateTableValue("UTS", String.format("%.2f", maxStress), "MPa");
-            
-            System.out.println("Results updated successfully");
-            
-        } catch (Exception e) {
-            System.err.println("Error updating results: " + e.getMessage());
-            e.printStackTrace();
-        }
-    }
-    
-    /**
-     * 테이블의 특정 행 업데이트
-     */
-    private void updateTableValue(String property, String value, String unit) {
-        try {
-            for (int i = 0; i < tableModel.getRowCount(); i++) {
-                Object propertyObj = tableModel.getValueAt(i, 0);
-                if (propertyObj != null) {
-                    String rowProperty = propertyObj.toString();
-                    if (rowProperty.contains(property) || property.contains(rowProperty)) {
-                        tableModel.setValueAt(value, i, 1);
-                        if (unit != null && !unit.isEmpty()) {
-                            tableModel.setValueAt(unit, i, 2);
-                        }
-                        break;
-                    }
-                }
-            }
-        } catch (Exception e) {
-            System.err.println("Error updating table value for " + property + ": " + e.getMessage());
-        }
     }
 }
