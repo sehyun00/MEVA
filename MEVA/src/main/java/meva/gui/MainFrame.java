@@ -472,20 +472,62 @@ public class MainFrame extends JFrame {
     /**
      * Save Results 버튼 클릭 이벤트
      */
-    private void onSaveResultsClicked() {
-        if (currentExperimentId <= 0) {
+    private void onSaveResultsClicked() private void onSaveResultsClicked() {
+        // 1. 계산된 결과 데이터(resultsData)가 있는지 확인
+        if (resultsData == null) {
             JOptionPane.showMessageDialog(this,
-                "먼저 Calculate 버튼을 누러 계산을 수행하세요.",
-                "계산 필요",
-                JOptionPane.WARNING_MESSAGE);
+                    "먼저 Calculate 버튼을 눌러 계산을 수행하세요.",
+                    "계산 필요",
+                    JOptionPane.WARNING_MESSAGE);
             return;
         }
+
+        // 2. CSV 파일 저장 다이얼로그 열기
+        JFileChooser fileChooser = new JFileChooser();
+        fileChooser.setDialogTitle("결과 저장 (CSV)");
         
-        JOptionPane.showMessageDialog(this,
-            "계산 결과가 데이터베이스에 저장되었습니다.\n실험 ID: " + currentExperimentId,
-            "저장 완료",
-            JOptionPane.INFORMATION_MESSAGE);
-        updateStatus("결과 저장 완료 (ID: " + currentExperimentId + ")");
+        // 기본 파일명 설정 (예: MEVA_Results_20231124_123000.csv)
+        String timeStamp = new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date());
+        String defaultFileName = "MEVA_Results_" + timeStamp + ".csv";
+        fileChooser.setSelectedFile(new File(defaultFileName));
+        
+        // CSV 필터 설정
+        fileChooser.setFileFilter(new javax.swing.filechooser.FileNameExtensionFilter("CSV 파일", "csv"));
+
+        int userSelection = fileChooser.showSaveDialog(this);
+
+        // 3. 사용자가 저장을 눌렀을 때 실제 파일 쓰기
+        if (userSelection == JFileChooser.APPROVE_OPTION) {
+            File fileToSave = fileChooser.getSelectedFile();
+            
+            // 확장자가 없으면 자동으로 .csv 붙여주기
+            if (!fileToSave.getAbsolutePath().endsWith(".csv")) {
+                fileToSave = new File(fileToSave.getAbsolutePath() + ".csv");
+            }
+
+            try (PrintWriter writer = new PrintWriter(fileToSave)) {
+                // CSV 헤더 작성
+                writer.println("Property,Value,Unit");
+                
+                // 결과 데이터 작성
+                for (Object[] row : resultsData) {
+                    // 콤마(,)가 포함된 데이터가 있을 수 있으니 따옴표로 감싸서 저장
+                    writer.println(String.format("\"%s\",\"%s\",\"%s\"", row[0], row[1], row[2]));
+                }
+                
+                JOptionPane.showMessageDialog(this,
+                        "파일이 성공적으로 저장되었습니다:\n" + fileToSave.getAbsolutePath(),
+                        "저장 완료",
+                        JOptionPane.INFORMATION_MESSAGE);
+                        
+            } catch (IOException e) {
+                e.printStackTrace();
+                JOptionPane.showMessageDialog(this,
+                        "파일 저장 중 오류가 발생했습니다: " + e.getMessage(),
+                        "저장 오류",
+                        JOptionPane.ERROR_MESSAGE);
+            }
+        }
     }
 
     private void onResetClicked() {
