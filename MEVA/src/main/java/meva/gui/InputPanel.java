@@ -114,8 +114,9 @@ public class InputPanel extends JPanel {
         setLayout(new BorderLayout());
         add(tabbedPane, BorderLayout.CENTER);
         setBorder(BorderFactory.createEmptyBorder(15, 15, 15, 15));
+    }
 
-            /**
+    /**
      * Tab 1: 새 실험 패널 생성 (기존 패널들을 포함)
      */
     private JPanel createNewExperimentPanel() {
