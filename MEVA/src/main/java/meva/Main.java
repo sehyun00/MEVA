@@ -1,5 +1,6 @@
 package meva;
 
+import meva.database.DatabaseManager; // 데이터베이스 관리자 클래스
 import meva.gui.MainFrame;
 import javax.swing.SwingUtilities;
 
@@ -12,14 +13,21 @@ import javax.swing.SwingUtilities;
  */
 public class Main {
     public static void main(String[] args) {
+        // 데이터베이스 초기화
+        System.out.println("=== 데이터베이스 초기화 시작 ===");
+        DatabaseManager.initializeDatabase();
+        System.out.println("=== 데이터베이스 초기화 완료 ===\n");
+
+        // Swing 이벤트 루프 시작
         SwingUtilities.invokeLater(() -> {
             try {
                 javax.swing.UIManager.setLookAndFeel(
-                    javax.swing.UIManager.getSystemLookAndFeelClassName());
+                        javax.swing.UIManager.getSystemLookAndFeelClassName());
             } catch (Exception e) {
                 e.printStackTrace();
             }
-            
+
+            // 메인 프레임 생성 및 표시
             MainFrame mainFrame = new MainFrame();
             mainFrame.setVisible(true);
         });

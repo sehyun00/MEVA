@@ -14,6 +14,7 @@ public class DatabaseManager {
 
     /**
      * DB 연결 객체 반환
+     * 
      * @return Connection 객체
      * @throws SQLException 연결 실패 시
      */
@@ -27,8 +28,8 @@ public class DatabaseManager {
      */
     public static void initializeDatabase() {
         try (Connection conn = getConnection();
-             Statement stmt = conn.createStatement()) {
-            
+                Statement stmt = conn.createStatement()) {
+
             // Materials 테이블 생성
             String sqlMaterials = "CREATE TABLE IF NOT EXISTS materials (" +
                     "id INTEGER PRIMARY KEY AUTOINCREMENT, " +
@@ -43,7 +44,7 @@ public class DatabaseManager {
                     ");";
             stmt.execute(sqlMaterials);
 
-            // Experiments 테이블 생성 (기존 TensileTests 대체)
+            // Experiments 테이블 생성
             String sqlExperiments = "CREATE TABLE IF NOT EXISTS experiments (" +
                     "id INTEGER PRIMARY KEY AUTOINCREMENT, " +
                     "material_id INTEGER NOT NULL, " +
@@ -58,6 +59,17 @@ public class DatabaseManager {
                     "FOREIGN KEY(material_id) REFERENCES materials(id) ON DELETE CASCADE" +
                     ");";
             stmt.execute(sqlExperiments);
+
+            // Calculation_results 테이블 생성
+            String sqlCalculationResults = "CREATE TABLE IF NOT EXISTS calculation_results (" +
+                    "id INTEGER PRIMARY KEY AUTOINCREMENT, " +
+                    "experiment_id INTEGER UNIQUE NOT NULL, " +
+                    "max_stress REAL, " +
+                    "strain_at_max_stress REAL, " +
+                    "uts REAL, " +
+                    "FOREIGN KEY(experiment_id) REFERENCES experiments(id) ON DELETE CASCADE" +
+                    ");";
+            stmt.execute(sqlCalculationResults);
 
             // TensileData 테이블 생성 (시계열 데이터)
             String sqlData = "CREATE TABLE IF NOT EXISTS tensile_data (" +
@@ -82,7 +94,8 @@ public class DatabaseManager {
             stmt.execute(sqlResults);
 
             // 기본 재료 데이터 삽입 (FK 제약조건 만족을 위해)
-            String sqlInitMaterial = "INSERT OR IGNORE INTO materials (id, name, category, youngs_modulus, yield_strength, tensile_strength) " +
+            String sqlInitMaterial = "INSERT OR IGNORE INTO materials (id, name, category, youngs_modulus, yield_strength, tensile_strength) "
+                    +
                     "VALUES (1, 'Default Steel', 'Steel', 200000, 250, 400);";
             stmt.execute(sqlInitMaterial);
 

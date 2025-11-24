@@ -28,7 +28,7 @@ import java.awt.FlowLayout;
 public class InputPanel extends JPanel {
 
     // 하위 패널들
-    // private JPanel materialPropertiesPanel;  // 봉재 시편에서는 미사용
+    // private JPanel materialPropertiesPanel; // 봉재 시편에서는 미사용
     private JPanel specimenDimensionsPanel;
     private JPanel controlButtonsPanel;
     private JPanel fileUploadPanel;
@@ -41,10 +41,10 @@ public class InputPanel extends JPanel {
     // private JTextField hardeningExponentField;
 
     // 시편 치수 입력 필드들 (봉재용)
-    private JTextField diameterField;  // 초기 직경 (D₀)
-    private JTextField gaugeLengthField;  // 초기 게이지 길이 (L₀)
+    private JTextField diameterField; // 초기 직경 (D₀)
+    private JTextField gaugeLengthField; // 초기 게이지 길이 (L₀)
 
-        // 데이터 파일 업로드 컴포넌트
+    // 데이터 파일 업로드 컴포넌트
     private JButton loadFileButton;
     private JLabel filePathLabel;
     private String selectedFilePath;
@@ -88,9 +88,8 @@ public class InputPanel extends JPanel {
         // 제어 버튼 패널 초기화
         controlButtonsPanel = createControlButtonsPanel();
 
-
-                // 데이터 파일 업로드 초기화
-                fileUploadPanel = createFileUploadPanel();
+        // 데이터 파일 업로드 초기화
+        fileUploadPanel = createFileUploadPanel();
         // 프리셋 관리 패널 초기화
         presetManagementPanel = createPresetManagementPanel();
     }
@@ -99,22 +98,22 @@ public class InputPanel extends JPanel {
      * 레이아웃 설정
      */
     private void setupLayout() {
-                // JTabbedPane 생성
+        // JTabbedPane 생성
         JTabbedPane tabbedPane = new JTabbedPane();
-        
+
         // Tab 1: 새 실험 (기존 패널들)
         JPanel newExperimentPanel = createNewExperimentPanel();
         tabbedPane.addTab("📂 새 실험", newExperimentPanel);
-        
+
         // Tab 2: 이전 실험 불러오기
         JPanel loadExperimentPanel = createLoadExperimentPanel();
         tabbedPane.addTab("📋 이전 실험 불러오기", loadExperimentPanel);
-        
+
         // 메인 레이아웃 설정
         setLayout(new BorderLayout());
         add(tabbedPane, BorderLayout.CENTER);
         setBorder(BorderFactory.createEmptyBorder(15, 15, 15, 15));
-        
+
         // 패널의 너비 설정
         setPreferredSize(new Dimension(350, 0));
     }
@@ -125,40 +124,40 @@ public class InputPanel extends JPanel {
     private JPanel createNewExperimentPanel() {
         JPanel panel = new JPanel();
         panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
-        
+
         // 기존 패널들 추가
         panel.add(specimenDimensionsPanel);
         panel.add(Box.createRigidArea(new Dimension(0, 20)));
-        
+
         panel.add(fileUploadPanel);
         panel.add(Box.createRigidArea(new Dimension(0, 20)));
-        
+
         panel.add(controlButtonsPanel);
         panel.add(Box.createRigidArea(new Dimension(0, 20)));
-        
+
         panel.add(presetManagementPanel);
-        
+
         return panel;
     }
 
-            /**
+    /**
      * Tab 2: 이전 실험 불러오기 패널 생성
      */
     private JPanel createLoadExperimentPanel() {
         JPanel panel = new JPanel(new BorderLayout(10, 10));
         panel.setBorder(BorderFactory.createEmptyBorder(15, 15, 15, 15));
-        
+
         // 상단 검색 및 필터 패널
         JPanel filterPanel = new JPanel();
         filterPanel.setLayout(new BoxLayout(filterPanel, BoxLayout.Y_AXIS));
-        
+
         // 검색 필드
         JPanel searchPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
         searchPanel.add(new JLabel("🔍 검색:"));
         JTextField searchField = new JTextField(20);
         searchPanel.add(searchField);
         filterPanel.add(searchPanel);
-        
+
         // 날짜 필터
         JPanel datePanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
         datePanel.add(new JLabel("📅 기간:"));
@@ -168,43 +167,203 @@ public class InputPanel extends JPanel {
         JTextField endDateField = new JTextField("2025-12-31", 10);
         datePanel.add(endDateField);
         filterPanel.add(datePanel);
-        
+
         // 재료 필터
         JPanel materialPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
         materialPanel.add(new JLabel("🏷️ 재료:"));
-        String[] materials = {"전체", "Steel", "Aluminum", "Copper"};
+        String[] materials = { "전체", "강재", "알루미늄", "기타" };
         JComboBox<String> materialCombo = new JComboBox<>(materials);
         materialPanel.add(materialCombo);
         filterPanel.add(materialPanel);
-        
+
         panel.add(filterPanel, BorderLayout.NORTH);
-        
-        // 중앙 - 실험 목록 테이블 (기존 LoadExperimentDialog 활용)
+
+        // 중앙 - 실험 목록 테이블
         JPanel tablePanel = new JPanel(new BorderLayout());
         tablePanel.setBorder(BorderFactory.createTitledBorder("📋 저장된 실험 목록"));
-        
-        // 테이블 생성 (간단한 예시)
-        String[] columnNames = {"ID", "실험명", "날짜", "재료"};
-        Object[][] data = {};
-        JTable table = new JTable(data, columnNames);
+
+        // 테이블 모델 생성
+        String[] columnNames = { "ID", "재료명", "날짜", "직경(mm)", "게이지길이(mm)" };
+        javax.swing.table.DefaultTableModel tableModel = new javax.swing.table.DefaultTableModel(columnNames, 0) {
+            @Override
+            public boolean isCellEditable(int row, int column) {
+                return false; // 셀 편집 불가
+            }
+        };
+        JTable table = new JTable(tableModel);
+        table.setSelectionMode(javax.swing.ListSelectionModel.SINGLE_SELECTION);
         JScrollPane scrollPane = new JScrollPane(table);
         tablePanel.add(scrollPane, BorderLayout.CENTER);
-        
+
         panel.add(tablePanel, BorderLayout.CENTER);
-        
+
+        // ⭐ DB에서 실험 목록 불러오기
+        loadExperimentListToTable(tableModel);
+
         // 하단 - 액션 버튼
         JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
-        JButton loadButton = new JButton("불러오기");
-        JButton deleteButton = new JButton("삭제");
-        JButton compareButton = new JButton("비교");
-        
+
+        JButton refreshButton = new JButton("🔄 새로고침");
+        refreshButton.addActionListener(e -> {
+            loadExperimentListToTable(tableModel);
+            JOptionPane.showMessageDialog(this, "실험 목록을 새로고침했습니다.");
+        });
+
+        JButton loadButton = new JButton("✅ 불러오기");
+        loadButton.addActionListener(e -> {
+            int selectedRow = table.getSelectedRow();
+            if (selectedRow == -1) {
+                JOptionPane.showMessageDialog(this, "불러올 실험을 선택해주세요.", "선택 필요", JOptionPane.WARNING_MESSAGE);
+                return;
+            }
+
+            int experimentId = (int) tableModel.getValueAt(selectedRow, 0);
+            loadExperimentById(experimentId);
+        });
+
+        JButton deleteButton = new JButton("🗑️ 삭제");
+        deleteButton.addActionListener(e -> {
+            int selectedRow = table.getSelectedRow();
+            if (selectedRow == -1) {
+                JOptionPane.showMessageDialog(this, "삭제할 실험을 선택해주세요.", "선택 필요", JOptionPane.WARNING_MESSAGE);
+                return;
+            }
+
+            int confirm = JOptionPane.showConfirmDialog(this,
+                    "선택한 실험을 삭제하시겠습니까?",
+                    "삭제 확인",
+                    JOptionPane.YES_NO_OPTION);
+
+            if (confirm == JOptionPane.YES_OPTION) {
+                int experimentId = (int) tableModel.getValueAt(selectedRow, 0);
+                deleteExperimentById(experimentId, tableModel, selectedRow);
+            }
+        });
+
+        JButton searchButton = new JButton("🔍 검색");
+        searchButton.addActionListener(e -> {
+            String searchText = searchField.getText().trim();
+            String materialCategory = (String) materialCombo.getSelectedItem();
+            searchExperiments(tableModel, searchText, materialCategory);
+        });
+
+        buttonPanel.add(refreshButton);
+        buttonPanel.add(searchButton);
         buttonPanel.add(loadButton);
         buttonPanel.add(deleteButton);
-        buttonPanel.add(compareButton);
-        
+
         panel.add(buttonPanel, BorderLayout.SOUTH);
-        
+
         return panel;
+    }
+
+    /**
+     * DB에서 실험 목록을 가져와 테이블에 표시
+     */
+    private void loadExperimentListToTable(javax.swing.table.DefaultTableModel tableModel) {
+        // 기존 데이터 삭제
+        tableModel.setRowCount(0);
+
+        // DAO를 통해 DB 조회
+        meva.database.ExperimentDAO dao = new meva.database.ExperimentDAO();
+        java.util.List<meva.models.Experiment> experiments = dao.getAllExperiments();
+
+        // 테이블에 추가
+        for (meva.models.Experiment exp : experiments) {
+            Object[] row = {
+                    exp.getId(),
+                    exp.getMaterialName() != null ? exp.getMaterialName() : "Unknown",
+                    exp.getTestDate(),
+                    exp.getSpecimenDiameter(),
+                    exp.getGaugeLength()
+            };
+            tableModel.addRow(row);
+        }
+
+        System.out.println("[정보] " + experiments.size() + "개의 실험 데이터 로드됨");
+    }
+
+    /**
+     * ID로 실험 데이터 불러오기
+     */
+    private void loadExperimentById(int experimentId) {
+        meva.database.ExperimentDAO dao = new meva.database.ExperimentDAO();
+        meva.models.Experiment exp = dao.getExperimentById(experimentId);
+
+        if (exp != null) {
+            // Tab 1의 입력 필드에 데이터 채우기
+            diameterField.setText(String.valueOf(exp.getSpecimenDiameter()));
+            gaugeLengthField.setText(String.valueOf(exp.getGaugeLength()));
+
+            if (exp.getDataFilePath() != null && !exp.getDataFilePath().isEmpty()) {
+                selectedFilePath = exp.getDataFilePath();
+                filePathLabel.setText("파일: " + new java.io.File(exp.getDataFilePath()).getName());
+            }
+
+            // Tab 1로 전환
+            Component parent = this.getParent();
+            while (parent != null && !(parent instanceof JTabbedPane)) {
+                parent = parent.getParent();
+            }
+            if (parent instanceof JTabbedPane) {
+                ((JTabbedPane) parent).setSelectedIndex(0); // 첫 번째 탭으로 이동
+            }
+
+            JOptionPane.showMessageDialog(this,
+                    "실험 ID " + experimentId + "를 불러왔습니다.\nCalculate 버튼을 눌러 그래프를 확인하세요.",
+                    "불러오기 완료",
+                    JOptionPane.INFORMATION_MESSAGE);
+        } else {
+            JOptionPane.showMessageDialog(this,
+                    "실험 데이터를 찾을 수 없습니다.",
+                    "오류",
+                    JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
+    /**
+     * ID로 실험 삭제
+     */
+    private void deleteExperimentById(int experimentId, javax.swing.table.DefaultTableModel tableModel, int rowIndex) {
+        meva.database.ExperimentDAO dao = new meva.database.ExperimentDAO();
+        boolean success = dao.deleteExperiment(experimentId);
+
+        if (success) {
+            tableModel.removeRow(rowIndex);
+            JOptionPane.showMessageDialog(this,
+                    "실험 ID " + experimentId + "가 삭제되었습니다.",
+                    "삭제 완료",
+                    JOptionPane.INFORMATION_MESSAGE);
+        } else {
+            JOptionPane.showMessageDialog(this,
+                    "실험 삭제에 실패했습니다.",
+                    "오류",
+                    JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
+    /**
+     * 검색 및 필터링
+     */
+    private void searchExperiments(javax.swing.table.DefaultTableModel tableModel, String searchText,
+            String materialCategory) {
+        tableModel.setRowCount(0);
+
+        meva.database.ExperimentDAO dao = new meva.database.ExperimentDAO();
+        java.util.List<meva.models.Experiment> experiments = dao.searchExperiments(searchText, materialCategory);
+
+        for (meva.models.Experiment exp : experiments) {
+            Object[] row = {
+                    exp.getId(),
+                    exp.getMaterialName() != null ? exp.getMaterialName() : "Unknown",
+                    exp.getTestDate(),
+                    exp.getSpecimenDiameter(),
+                    exp.getGaugeLength()
+            };
+            tableModel.addRow(row);
+        }
+
+        System.out.println("[정보] 검색 결과: " + experiments.size() + "개");
     }
 
     /**
@@ -219,7 +378,8 @@ public class InputPanel extends JPanel {
         gbc.insets = new Insets(5, 5, 5, 5);
 
         // 초기 직경 (D₀)
-        gbc.gridx = 0; gbc.gridy = 0;
+        gbc.gridx = 0;
+        gbc.gridy = 0;
         panel.add(new JLabel("초기 직경 (D₀):"), gbc);
         gbc.gridx = 1;
         diameterField = new JTextField("10.0", 10);
@@ -229,7 +389,8 @@ public class InputPanel extends JPanel {
         panel.add(new JLabel("mm"), gbc);
 
         // 초기 게이지 길이 (L₀)
-        gbc.gridx = 0; gbc.gridy = 1;
+        gbc.gridx = 0;
+        gbc.gridy = 1;
         panel.add(new JLabel("초기 게이지 길이 (L₀):"), gbc);
         gbc.gridx = 1;
         gaugeLengthField = new JTextField("50.0", 10);
@@ -241,7 +402,7 @@ public class InputPanel extends JPanel {
         return panel;
     }
 
-        /**
+    /**
      * 데이터 파일 업로드 패널 생성
      */
     private JPanel createFileUploadPanel() {
@@ -253,14 +414,14 @@ public class InputPanel extends JPanel {
         gbc.insets = new Insets(5, 5, 5, 5);
 
         // 파일 선택 버튼
-        gbc.gridx = 0; gbc.gridy = 0;
+        gbc.gridx = 0;
+        gbc.gridy = 0;
         loadFileButton = new JButton("파일 선택...");
         loadFileButton.setPreferredSize(new Dimension(120, 30));
         loadFileButton.addActionListener(e -> {
             JFileChooser fileChooser = new JFileChooser();
             fileChooser.setFileFilter(new javax.swing.filechooser.FileNameExtensionFilter(
-                "Text Files (*.txt)", "txt"
-            ));
+                    "Text Files (*.txt)", "txt"));
             int result = fileChooser.showOpenDialog(this);
             if (result == JFileChooser.APPROVE_OPTION) {
                 selectedFilePath = fileChooser.getSelectedFile().getAbsolutePath();
@@ -270,34 +431,12 @@ public class InputPanel extends JPanel {
         panel.add(loadFileButton, gbc);
 
         // 파일 경로 표시 레이블
-        gbc.gridx = 1; gbc.gridwidth = 2;
+        gbc.gridx = 1;
+        gbc.gridwidth = 2;
         filePathLabel = new JLabel("파일이 선택되지 않음");
         filePathLabel.setFont(new Font("Dialog", Font.PLAIN, 11));
         filePathLabel.setForeground(Color.GRAY);
         panel.add(filePathLabel, gbc);
-
-                // 이전 실험 불러오기 버튼
-        gbc.gridx = 0; gbc.gridy = 1; gbc.gridwidth = 3;
-        JButton loadPreviousButton = new JButton("이전 실험 불러오기");
-        loadPreviousButton.setPreferredSize(new Dimension(200, 30));
-        loadPreviousButton.addActionListener(e -> {
-            LoadExperimentDialog dialog = new LoadExperimentDialog(
-                (java.awt.Frame) javax.swing.SwingUtilities.getWindowAncestor(this)
-            );
-            dialog.setVisible(true);
-            
-            meva.models.Experiment exp = dialog.getSelectedExperiment();
-            if (exp != null) {
-                // 시편 치수 업데이트
-                diameterField.setText(String.valueOf(exp.getSpecimenDiameter()));
-                gaugeLengthField.setText(String.valueOf(exp.getGaugeLength()));
-                javax.swing.JOptionPane.showMessageDialog(this,
-                    "실험 데이터를 불러왔습니다: " + exp.getMaterialName(),
-                    "성공",
-                    javax.swing.JOptionPane.INFORMATION_MESSAGE);
-            }
-        });
-        panel.add(loadPreviousButton, gbc);
 
         return panel;
     }
@@ -311,25 +450,28 @@ public class InputPanel extends JPanel {
         // Calculate 버튼
         calculateButton = new JButton("Calculate");
         calculateButton.setPreferredSize(new Dimension(100, 30));
-        calculateButton.setBackground(new Color(33, 150, 243));  // Primary 색상
+        calculateButton.setBackground(new Color(33, 150, 243)); // Primary 색상
         calculateButton.setForeground(Color.WHITE);
         calculateButton.setFont(new Font("Dialog", Font.BOLD, 12));
         calculateButton.addActionListener(e -> {
-            if (calculateListener != null) calculateListener.actionPerformed(e);
+            if (calculateListener != null)
+                calculateListener.actionPerformed(e);
         });
 
         // Reset 버튼
         resetButton = new JButton("Reset");
         resetButton.setPreferredSize(new Dimension(100, 30));
         resetButton.addActionListener(e -> {
-            if (resetListener != null) resetListener.actionPerformed(e);
+            if (resetListener != null)
+                resetListener.actionPerformed(e);
         });
 
         // Clear Graph 버튼
         clearGraphButton = new JButton("Clear Graph");
         clearGraphButton.setPreferredSize(new Dimension(100, 30));
         clearGraphButton.addActionListener(e -> {
-            if (clearGraphListener != null) clearGraphListener.actionPerformed(e);
+            if (clearGraphListener != null)
+                clearGraphListener.actionPerformed(e);
         });
 
         panel.add(calculateButton);
@@ -351,21 +493,27 @@ public class InputPanel extends JPanel {
         gbc.insets = new Insets(5, 5, 5, 5);
 
         // 프리셋 선택
-        gbc.gridx = 0; gbc.gridy = 0;
+        gbc.gridx = 0;
+        gbc.gridy = 0;
         panel.add(new JLabel("Preset:"), gbc);
-        gbc.gridx = 1; gbc.gridwidth = 2;
-        String[] presets = {"Standard Round (Default)", "Custom"};
+        gbc.gridx = 1;
+        gbc.gridwidth = 2;
+        String[] presets = { "Standard Round (Default)", "Custom" };
         presetComboBox = new JComboBox<>(presets);
         presetComboBox.addActionListener(e -> {
-            if (presetChangedListener != null) presetChangedListener.actionPerformed(e);
+            if (presetChangedListener != null)
+                presetChangedListener.actionPerformed(e);
         });
         panel.add(presetComboBox, gbc);
 
         // 저장 버튼
-        gbc.gridx = 0; gbc.gridy = 1; gbc.gridwidth = 1;
+        gbc.gridx = 0;
+        gbc.gridy = 1;
+        gbc.gridwidth = 1;
         savePresetButton = new JButton("Save");
         savePresetButton.addActionListener(e -> {
-            if (savePresetListener != null) savePresetListener.actionPerformed(e);
+            if (savePresetListener != null)
+                savePresetListener.actionPerformed(e);
         });
         panel.add(savePresetButton, gbc);
 
@@ -373,7 +521,8 @@ public class InputPanel extends JPanel {
         gbc.gridx = 1;
         deletePresetButton = new JButton("Delete");
         deletePresetButton.addActionListener(e -> {
-            if (deletePresetListener != null) deletePresetListener.actionPerformed(e);
+            if (deletePresetListener != null)
+                deletePresetListener.actionPerformed(e);
         });
         panel.add(deletePresetButton, gbc);
 
@@ -404,12 +553,12 @@ public class InputPanel extends JPanel {
         }
     }
 
-        /**
-             * 선택된 파일 경로 가져오기
-                  */
-        public String getSelectedFilePath() {
-                    return selectedFilePath;
-                }
+    /**
+     * 선택된 파일 경로 가져오기
+     */
+    public String getSelectedFilePath() {
+        return selectedFilePath;
+    }
 
     /**
      * 초기 단면적 (A₀) 계산
