@@ -42,6 +42,9 @@ public class MainFrame extends JFrame {
      * MainFrame 생성자
      */
     public MainFrame() {
+        // DB 초기화
+        meva.database.DatabaseManager.initializeDatabase();
+        
         initializeLookAndFeel();
         initializeComponents();
         setupLayout();
@@ -472,9 +475,10 @@ public class MainFrame extends JFrame {
     /**
      * Save Results 버튼 클릭 이벤트
      */
-    private void onSaveResultsClicked() private void onSaveResultsClicked() {
-        // 1. 계산된 결과 데이터(resultsData)가 있는지 확인
-        if (resultsData == null) {
+    private void onSaveResultsClicked() {
+        // 1. 계산된 결과 데이터가 있는지 확인 (테이블 모델에서 확인)
+        if (resultsPanel.getTableModel().getRowCount() == 0 || 
+            resultsPanel.getTableModel().getValueAt(0, 1).equals("-")) {
             JOptionPane.showMessageDialog(this,
                     "먼저 Calculate 버튼을 눌러 계산을 수행하세요.",
                     "계산 필요",
@@ -486,10 +490,11 @@ public class MainFrame extends JFrame {
         JFileChooser fileChooser = new JFileChooser();
         fileChooser.setDialogTitle("결과 저장 (CSV)");
         
-        // 기본 파일명 설정 (예: MEVA_Results_20231124_123000.csv)
-        String timeStamp = new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date());
+        // 기본 파일명 설정
+        java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("yyyyMMdd_HHmmss");
+        String timeStamp = sdf.format(new java.util.Date());
         String defaultFileName = "MEVA_Results_" + timeStamp + ".csv";
-        fileChooser.setSelectedFile(new File(defaultFileName));
+        fileChooser.setSelectedFile(new java.io.File(defaultFileName));
         
         // CSV 필터 설정
         fileChooser.setFileFilter(new javax.swing.filechooser.FileNameExtensionFilter("CSV 파일", "csv"));
@@ -498,21 +503,24 @@ public class MainFrame extends JFrame {
 
         // 3. 사용자가 저장을 눌렀을 때 실제 파일 쓰기
         if (userSelection == JFileChooser.APPROVE_OPTION) {
-            File fileToSave = fileChooser.getSelectedFile();
+            java.io.File fileToSave = fileChooser.getSelectedFile();
             
             // 확장자가 없으면 자동으로 .csv 붙여주기
             if (!fileToSave.getAbsolutePath().endsWith(".csv")) {
-                fileToSave = new File(fileToSave.getAbsolutePath() + ".csv");
+                fileToSave = new java.io.File(fileToSave.getAbsolutePath() + ".csv");
             }
 
-            try (PrintWriter writer = new PrintWriter(fileToSave)) {
+            try (java.io.PrintWriter writer = new java.io.PrintWriter(fileToSave)) {
                 // CSV 헤더 작성
                 writer.println("Property,Value,Unit");
                 
-                // 결과 데이터 작성
-                for (Object[] row : resultsData) {
-                    // 콤마(,)가 포함된 데이터가 있을 수 있으니 따옴표로 감싸서 저장
-                    writer.println(String.format("\"%s\",\"%s\",\"%s\"", row[0], row[1], row[2]));
+                // 결과 데이터 작성 (테이블 모델에서 읽어오기)
+                javax.swing.table.DefaultTableModel model = resultsPanel.getTableModel();
+                for (int i = 0; i < model.getRowCount(); i++) {
+                    Object prop = model.getValueAt(i, 0);
+                    Object val = model.getValueAt(i, 1);
+                    Object unit = model.getValueAt(i, 2);
+                    writer.println(String.format("\"%s\",\"%s\",\"%s\"", prop, val, unit));
                 }
                 
                 JOptionPane.showMessageDialog(this,
