@@ -12,6 +12,8 @@ import javax.swing.SwingWorker;
 import java.io.IOException;
 import java.util.List;
 import java.time.LocalDate;
+import meva.calculation.MaterialProperties;
+import java.util.ArrayList;
 
 /**
  * MEVA 애플리케이션의 메인 윈도우 프레임
@@ -29,12 +31,14 @@ public class MainFrame extends JFrame {
     private GraphPanel visualizationPanel;
     private ResultPanel resultsPanel;
     private JPanel statusBar;
+    private double youngsModulus;
+    private double yieldStrength;
 
     // 상태바 컴포넌트
     private JLabel statusLabel;
     private JProgressBar progressBar;
     private JLabel timeLabel;
-    
+
     // 현재 실험 ID (저장된 실험 추적용)
     private int currentExperimentId = -1;
 
@@ -44,7 +48,7 @@ public class MainFrame extends JFrame {
     public MainFrame() {
         // DB 초기화
         meva.database.DatabaseManager.initializeDatabase();
-        
+
         initializeLookAndFeel();
         initializeComponents();
         setupLayout();
@@ -144,7 +148,7 @@ public class MainFrame extends JFrame {
         visualizationPanel.setResetZoomListener(e -> onResetZoom());
         visualizationPanel.setExportChartListener(e -> onExportChart());
     }
-    
+
     /**
      * ResultPanel 이벤트 리스너 설정
      */
@@ -384,8 +388,16 @@ public class MainFrame extends JFrame {
                     // 5. 계산 결과 생성
                     maxStress = calculator.findMaxStress(stressStrainData);
                     strainAtMaxStress = calculator.findStrainAtMaxStress(stressStrainData);
-                    
-                    // 6. DB에 실험 데이터 저장
+
+                    // 6. 영률과 항복 강도 계산
+                    MaterialProperties materialProps = new MaterialProperties();
+                    youngsModulus = materialProps.calculateYoungsModulus(stressStrainData);
+                    yieldStrength = materialProps.calculateYieldStrength(stressStrainData, youngsModulus);
+
+                    System.out.println("영률 (E): " + youngsModulus + " GPa");
+                    System.out.println("항복 강도 (σy): " + yieldStrength + " MPa");
+
+                    // 7. DB에 실험 데이터 저장
                     saveExperimentToDatabase(filePath, maxStress, strainAtMaxStress);
 
                 } catch (IOException e) {
@@ -414,23 +426,24 @@ public class MainFrame extends JFrame {
                 // 4. 그래프에 표시
                 visualizationPanel.plotStressStrainCurve(stressStrainData);
 
-                // 5. 결과 패널 업데이트
+                // 5. 결과 패널 업데이트// 5. 결과 패널 업데이트
                 Object[][] resultsData = {
-                    {"Max Stress (σmax)", String.format("%.2f", maxStress), "MPa"},
-                    {"Strain at Max (εmax)", String.format("%.4f", strainAtMaxStress), "-"},
-                    {"UTS", String.format("%.2f", maxStress), "MPa"},
-                    {"Young's Modulus (E)", "-", "GPa"},
-                    {"Yield Strength (σy)", "-", "MPa"},
-                    {"Elongation", "-", "%"},
-                    {"Reduction of Area", "-", "%"},
-                    {"Toughness", "-", "MJ/m³"},
-                    {"Resilience", "-", "MJ/m³"},
-                    {"Elastic Limit", "-", "MPa"},
-                    {"Proportional Limit", "-", "MPa"},
-                    {"Necking Start Strain", "-", "-"},
-                    {"Fracture Stress", "-", "MPa"},
-                    {"Fracture Strain", "-", "-"}
+                        { "Max Stress (σmax)", String.format("%.2f", maxStress), "MPa" },
+                        { "Strain at Max (εmax)", String.format("%.4f", strainAtMaxStress), "-" },
+                        { "UTS", String.format("%.2f", maxStress), "MPa" },
+                        { "Young's Modulus (E)", String.format("%.2f", youngsModulus), "GPa" },
+                        { "Yield Strength (σy)", String.format("%.2f", yieldStrength), "MPa" },
+                        { "Elongation", "-", "%" },
+                        { "Reduction of Area", "-", "%" },
+                        { "Toughness", "-", "MJ/m³" },
+                        { "Resilience", "-", "MJ/m³" },
+                        { "Elastic Limit", "-", "MPa" },
+                        { "Proportional Limit", "-", "MPa" },
+                        { "Necking Start Strain", "-", "-" },
+                        { "Fracture Stress", "-", "MPa" },
+                        { "Fracture Strain", "-", "-" }
                 };
+
                 resultsPanel.updateResults(resultsData);
 
                 updateStatus("계산 완료 (" + stressStrainData.size() + " 데이터 포인트) - 실험 ID: " + currentExperimentId);
@@ -439,7 +452,7 @@ public class MainFrame extends JFrame {
 
         worker.execute();
     }
-    
+
     /**
      * 실험 데이터를 데이터베이스에 저장
      */
@@ -454,11 +467,11 @@ public class MainFrame extends JFrame {
             exp.setTestDate(LocalDate.now().toString());
             exp.setDataFilePath(filePath);
             exp.setRemarks("자동 저장된 실험");
-            
+
             // DAO를 통해 저장
             ExperimentDAO dao = new ExperimentDAO();
             currentExperimentId = dao.saveExperiment(exp);
-            
+
             if (currentExperimentId > 0) {
                 // 계산 결과 저장
                 dao.saveCalculationResults(currentExperimentId, maxStress, strainAtMaxStress, maxStress);
@@ -471,14 +484,14 @@ public class MainFrame extends JFrame {
             e.printStackTrace();
         }
     }
-    
+
     /**
      * Save Results 버튼 클릭 이벤트
      */
     private void onSaveResultsClicked() {
         // 1. 계산된 결과 데이터가 있는지 확인 (테이블 모델에서 확인)
-        if (resultsPanel.getTableModel().getRowCount() == 0 || 
-            resultsPanel.getTableModel().getValueAt(0, 1).equals("-")) {
+        if (resultsPanel.getTableModel().getRowCount() == 0 ||
+                resultsPanel.getTableModel().getValueAt(0, 1).equals("-")) {
             JOptionPane.showMessageDialog(this,
                     "먼저 Calculate 버튼을 눌러 계산을 수행하세요.",
                     "계산 필요",
@@ -489,13 +502,13 @@ public class MainFrame extends JFrame {
         // 2. CSV 파일 저장 다이얼로그 열기
         JFileChooser fileChooser = new JFileChooser();
         fileChooser.setDialogTitle("결과 저장 (CSV)");
-        
+
         // 기본 파일명 설정
         java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("yyyyMMdd_HHmmss");
         String timeStamp = sdf.format(new java.util.Date());
         String defaultFileName = "MEVA_Results_" + timeStamp + ".csv";
         fileChooser.setSelectedFile(new java.io.File(defaultFileName));
-        
+
         // CSV 필터 설정
         fileChooser.setFileFilter(new javax.swing.filechooser.FileNameExtensionFilter("CSV 파일", "csv"));
 
@@ -504,7 +517,7 @@ public class MainFrame extends JFrame {
         // 3. 사용자가 저장을 눌렀을 때 실제 파일 쓰기
         if (userSelection == JFileChooser.APPROVE_OPTION) {
             java.io.File fileToSave = fileChooser.getSelectedFile();
-            
+
             // 확장자가 없으면 자동으로 .csv 붙여주기
             if (!fileToSave.getAbsolutePath().endsWith(".csv")) {
                 fileToSave = new java.io.File(fileToSave.getAbsolutePath() + ".csv");
@@ -513,7 +526,7 @@ public class MainFrame extends JFrame {
             try (java.io.PrintWriter writer = new java.io.PrintWriter(fileToSave)) {
                 // CSV 헤더 작성
                 writer.println("Property,Value,Unit");
-                
+
                 // 결과 데이터 작성 (테이블 모델에서 읽어오기)
                 javax.swing.table.DefaultTableModel model = resultsPanel.getTableModel();
                 for (int i = 0; i < model.getRowCount(); i++) {
@@ -522,12 +535,12 @@ public class MainFrame extends JFrame {
                     Object unit = model.getValueAt(i, 2);
                     writer.println(String.format("\"%s\",\"%s\",\"%s\"", prop, val, unit));
                 }
-                
+
                 JOptionPane.showMessageDialog(this,
                         "파일이 성공적으로 저장되었습니다:\n" + fileToSave.getAbsolutePath(),
                         "저장 완료",
                         JOptionPane.INFORMATION_MESSAGE);
-                        
+
             } catch (IOException e) {
                 e.printStackTrace();
                 JOptionPane.showMessageDialog(this,
