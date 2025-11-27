@@ -26,10 +26,10 @@ import java.util.List;
 public class ResultPanel extends JPanel {
 
     // 결과 테이블 및 관련 컴포넌트
-    private JTable resultsTable;
-    private DefaultTableModel tableModel;
-    private JScrollPane scrollPane;
-    private JButton saveButton;
+    private JTable resultsTable;        // 계산 결과를 표시하는 표 컴포넌트
+    private DefaultTableModel tableModel; // 테이블의 데이터 모델 (행/열 관리)
+    private JScrollPane scrollPane;     // 테이블에 스크롤 기능을 제공하는 컨테이너
+    private JButton saveButton;         // 결과를 CSV 파일로 저장하는 버튼
     
     // 외부 리스너
     private ActionListener saveButtonListener;
@@ -119,6 +119,12 @@ public class ResultPanel extends JPanel {
     private void setupLayout() {
         setLayout(new BorderLayout(5, 5));
         setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+
+        // 의도: 결과 테이블의 모든 컬럼(Property, Value, Unit)이 잘리지 않고 보이도록 최소 너비 확보
+        // 컬럼 너비 합계(180+100+60 = 340) + 스크롤바 및 여백 고려
+        setMinimumSize(new Dimension(300, 0));
+        // 의도: 초기 실행 시 최소 너비(300px)로 시작하도록 설정
+        setPreferredSize(new Dimension(300, 0));
 
         // 타이틀 레이블
         JLabel titleLabel = new JLabel("Results");

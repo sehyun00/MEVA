@@ -29,10 +29,10 @@ public class InputPanel extends JPanel {
 
     // 하위 패널들
     // private JPanel materialPropertiesPanel; // 봉재 시편에서는 미사용
-    private JPanel specimenDimensionsPanel;
-    private JPanel controlButtonsPanel;
-    private JPanel fileUploadPanel;
-    private JPanel presetManagementPanel;
+    private JPanel specimenDimensionsPanel; // 시편 치수 입력 영역을 담는 패널
+    private JPanel controlButtonsPanel;     // 계산, 초기화 등 제어 버튼을 담는 패널
+    private JPanel fileUploadPanel;         // 데이터 파일 선택 및 경로 표시 패널
+    private JPanel presetManagementPanel;   // 입력값 프리셋 저장/로드 관리 패널
 
     // 재료 물성 입력 필드들 (봉재 시편에서는 미사용 - 실험 데이터 기반)
     // private JTextField youngModulusField;
@@ -41,23 +41,23 @@ public class InputPanel extends JPanel {
     // private JTextField hardeningExponentField;
 
     // 시편 치수 입력 필드들 (봉재용)
-    private JTextField diameterField; // 초기 직경 (D₀)
-    private JTextField gaugeLengthField; // 초기 게이지 길이 (L₀)
+    private JTextField diameterField;    // 시편의 초기 직경 (D₀) 입력
+    private JTextField gaugeLengthField; // 시편의 초기 게이지 길이 (L₀) 입력
 
     // 데이터 파일 업로드 컴포넌트
-    private JButton loadFileButton;
-    private JLabel filePathLabel;
-    private String selectedFilePath;
+    private JButton loadFileButton;  // 실험 데이터(.txt) 파일 선택 다이얼로그 열기
+    private JLabel filePathLabel;    // 선택된 파일의 이름 표시
+    private String selectedFilePath; // 선택된 파일의 절대 경로 저장
 
     // 제어 버튼들
-    private JButton calculateButton;
-    private JButton resetButton;
-    private JButton clearGraphButton;
+    private JButton calculateButton;  // 입력된 데이터로 시뮬레이션 및 결과 계산 실행
+    private JButton resetButton;      // 모든 입력 필드 및 상태 초기화
+    private JButton clearGraphButton; // 그래프 영역만 초기화
 
     // 프리셋 관리 컴포넌트
-    private JComboBox<String> presetComboBox;
-    private JButton savePresetButton;
-    private JButton deletePresetButton;
+    private JComboBox<String> presetComboBox; // 저장된 프리셋 목록 선택
+    private JButton savePresetButton;         // 현재 입력값을 새 프리셋으로 저장
+    private JButton deletePresetButton;       // 선택된 프리셋 삭제
 
     // 이벤트 리스너들
     private ActionListener calculateListener;
@@ -115,7 +115,10 @@ public class InputPanel extends JPanel {
         setBorder(BorderFactory.createEmptyBorder(15, 15, 15, 15));
 
         // 패널의 너비 설정
-        setPreferredSize(new Dimension(350, 0));
+        // 의도: 초기 실행 시 최소 너비(280px)로 시작하도록 설정 (그래프 영역 확보 위함)
+        setPreferredSize(new Dimension(280, 0));
+        // 의도: JSplitPane 사용 시 패널이 너무 작아져서 UI가 깨지는 것을 방지하기 위한 최소 너비 설정
+        setMinimumSize(new Dimension(280, 0));
     }
 
     /**
