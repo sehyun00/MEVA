@@ -1,14 +1,34 @@
-# 컴파일된 클래스 파일 폴더 무시
-bin/
-target/
-build/
-*.class
+# Database
+meva.db
+*.db
+*.sqlite
 
-# IDE 설정 파일 (선택사항)
+# Maven
+target/
+pom.xml.tag
+pom.xml.releaseBackup
+pom.xml.versionsBackup
+pom.xml.next
+release.properties
+dependency-reduced-pom.xml
+buildNumber.properties
+.mvn/timing.properties
+.mvn/wrapper/maven-wrapper.properties
+
+# IDE
+.idea/
+.vscode/
+.cursor/
+*.iml
+*.ipr
+*.iws
 .classpath
 .project
 .settings/
-.vscode/
+.springBeans
 
-# 데이터베이스 파일
-*.db
+# Compiled class files
+*.class
+
+# Log files
+*.log
