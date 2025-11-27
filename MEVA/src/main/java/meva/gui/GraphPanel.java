@@ -4,13 +4,20 @@ package meva.gui;
 
 import javax.swing.*;
 import java.awt.*;
+import java.awt.event.MouseEvent;
+import java.awt.event.MouseAdapter;
+import java.awt.geom.Point2D;
+import java.awt.geom.Rectangle2D;
 import java.awt.event.ActionListener;
 import java.util.List;
 
 // JFreeChart imports
 import org.jfree.chart.ChartFactory;
 import org.jfree.chart.ChartPanel;
+import org.jfree.chart.ChartRenderingInfo;
 import org.jfree.chart.JFreeChart;
+import org.jfree.chart.axis.ValueAxis;
+import org.jfree.chart.panel.Overlay;
 import java.awt.geom.Ellipse2D;
 import org.jfree.chart.annotations.XYPointerAnnotation;
 import org.jfree.chart.plot.DatasetRenderingOrder;
@@ -57,6 +64,7 @@ public class GraphPanel extends JPanel {
     // JFreeChart 관련
     private JFreeChart currentChart;       // 현재 차트 객체
     private List<StressStrainPoint> currentData; // 현재 표시 중인 데이터 (시각화 업데이트용)
+    private Point2D mousePoint; // 크로스헤어 표시용 마우스 좌표
     
     // 차트 제어 버튼들
     private JButton zoomInButton;      // 차트 확대
@@ -252,6 +260,26 @@ public class GraphPanel extends JPanel {
             chartPanel.setMouseWheelEnabled(true);  // 마우스 휠 줌 활성화
             // 배경색을 흰색으로 설정하여 깔끔하게 표시
             chartPanel.setBackground(Color.WHITE);
+            
+            // 크로스헤어 오버레이 기능을 위한 마우스 리스너 등록
+            chartPanel.addMouseMotionListener(new MouseAdapter() {
+                @Override
+                public void mouseMoved(MouseEvent e) {
+                    mousePoint = e.getPoint();
+                    chartPanel.repaint(); // 오버레이 갱신
+                }
+            });
+
+            chartPanel.addMouseListener(new MouseAdapter() {
+                @Override
+                public void mouseExited(MouseEvent e) {
+                    mousePoint = null; // 마우스가 나가면 십자선 제거
+                    chartPanel.repaint();
+                }
+            });
+
+            // 커스텀 오버레이 등록
+            chartPanel.addOverlay(new InteractiveCrosshairOverlay());
             
             // 플레이스홀더가 있다면 제거하고 chartPanel 추가
             remove(placeholderPanel);
@@ -537,5 +565,105 @@ public class GraphPanel extends JPanel {
     
     public void setExportChartListener(ActionListener listener) {
         this.exportChartListener = listener;
+    }
+
+    /**
+     * 인터랙티브 크로스헤어 오버레이
+     * 마우스 위치에 점선 십자선을 그리고, 축 영역에 현재 값을 박스 형태로 표시
+     */
+    private class InteractiveCrosshairOverlay implements Overlay {
+        private final Stroke DASHED_STROKE = new BasicStroke(1.0f, BasicStroke.CAP_BUTT, 
+                BasicStroke.JOIN_MITER, 10.0f, new float[]{4.0f, 4.0f}, 0.0f);
+        private final Color CROSSHAIR_COLOR = new Color(100, 100, 100, 180); // 회색
+        private final Color LABEL_BG_COLOR = Color.BLACK;
+        private final Color LABEL_TEXT_COLOR = Color.WHITE;
+        private final Font LABEL_FONT = new Font("SansSerif", Font.PLAIN, 11);
+
+        @Override
+        public void paintOverlay(Graphics2D g2, ChartPanel chartPanel) {
+            if (mousePoint == null) return;
+
+            ChartRenderingInfo info = chartPanel.getChartRenderingInfo();
+            // info가 아직 초기화되지 않았거나 plot 정보가 없으면 리턴
+            if (info == null || info.getPlotInfo() == null) return;
+            
+            Rectangle2D dataArea = info.getPlotInfo().getDataArea();
+
+            // 마우스가 데이터 영역 안에 있는지 확인
+            if (!dataArea.contains(mousePoint)) return;
+
+            double x = mousePoint.getX();
+            double y = mousePoint.getY();
+
+            // 기존 그래픽스 설정 저장
+            Stroke originalStroke = g2.getStroke();
+            Color originalColor = g2.getColor();
+            Font originalFont = g2.getFont();
+            g2.setFont(LABEL_FONT);
+
+            // 1. 십자선 그리기 (점선)
+            g2.setStroke(DASHED_STROKE);
+            g2.setColor(CROSSHAIR_COLOR);
+            g2.drawLine((int)dataArea.getMinX(), (int)y, (int)dataArea.getMaxX(), (int)y); // 수평선
+            g2.drawLine((int)x, (int)dataArea.getMinY(), (int)x, (int)dataArea.getMaxY()); // 수직선
+
+            // 2. 값 계산 (화면 좌표 -> 데이터 좌표)
+            if (chartPanel.getChart() != null) {
+                XYPlot plot = chartPanel.getChart().getXYPlot();
+                ValueAxis domainAxis = plot.getDomainAxis();
+                ValueAxis rangeAxis = plot.getRangeAxis();
+                
+                // 데이터 영역(Rectangle2D)과 축의 방향(Edge)을 이용해 값 변환
+                double chartX = domainAxis.java2DToValue(x, dataArea, plot.getDomainAxisEdge());
+                double chartY = rangeAxis.java2DToValue(y, dataArea, plot.getRangeAxisEdge());
+
+                String xText = String.format("%.4f", chartX); // Strain (소수점 4자리)
+                String yText = String.format("%.1f", chartY); // Stress (소수점 1자리)
+
+                FontMetrics fm = g2.getFontMetrics();
+                int xTextWidth = fm.stringWidth(xText);
+                int yTextWidth = fm.stringWidth(yText);
+                int textHeight = fm.getHeight();
+                int padding = 4;
+
+                // 3. X축 라벨 그리기 (하단)
+                int labelX_W = xTextWidth + (padding * 2);
+                int labelX_H = textHeight + (padding * 2);
+                int labelX_X = (int)x - (labelX_W / 2);
+                int labelX_Y = (int)dataArea.getMaxY(); // 데이터 영역 바로 아래
+
+                // 라벨 배경 박스
+                g2.setColor(LABEL_BG_COLOR);
+                g2.fillRect(labelX_X, labelX_Y, labelX_W, labelX_H);
+                
+                // 라벨 텍스트
+                g2.setColor(LABEL_TEXT_COLOR);
+                g2.drawString(xText, labelX_X + padding, labelX_Y + padding + fm.getAscent());
+
+                // 4. Y축 라벨 그리기 (좌측)
+                int labelY_W = yTextWidth + (padding * 2);
+                int labelY_H = textHeight + (padding * 2);
+                int labelY_X = (int)dataArea.getMinX() - labelY_W; // 데이터 영역 바로 왼쪽
+                int labelY_Y = (int)y - (labelY_H / 2);
+
+                // 라벨 배경 박스
+                g2.setColor(LABEL_BG_COLOR);
+                g2.fillRect(labelY_X, labelY_Y, labelY_W, labelY_H);
+
+                // 라벨 텍스트
+                g2.setColor(LABEL_TEXT_COLOR);
+                g2.drawString(yText, labelY_X + padding, labelY_Y + padding + fm.getAscent());
+            }
+
+            // 그래픽스 설정 복원
+            g2.setStroke(originalStroke);
+            g2.setColor(originalColor);
+            g2.setFont(originalFont);
+        }
+
+        @Override
+        public void addChangeListener(org.jfree.chart.event.OverlayChangeListener listener) {}
+        @Override
+        public void removeChangeListener(org.jfree.chart.event.OverlayChangeListener listener) {}
     }
 }
