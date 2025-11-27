@@ -11,11 +11,17 @@ import java.util.List;
 import org.jfree.chart.ChartFactory;
 import org.jfree.chart.ChartPanel;
 import org.jfree.chart.JFreeChart;
+import java.awt.geom.Ellipse2D;
+import org.jfree.chart.annotations.XYPointerAnnotation;
+import org.jfree.chart.plot.DatasetRenderingOrder;
+import org.jfree.chart.plot.IntervalMarker;
 import org.jfree.chart.plot.PlotOrientation;
 import org.jfree.chart.plot.XYPlot;
 import org.jfree.chart.renderer.xy.XYLineAndShapeRenderer;
 import org.jfree.data.xy.XYSeries;
 import org.jfree.data.xy.XYSeriesCollection;
+import org.jfree.chart.ui.RectangleAnchor;
+import org.jfree.chart.ui.TextAnchor;
 
 // MEVA models
 import meva.models.StressStrainPoint;
@@ -50,6 +56,7 @@ public class GraphPanel extends JPanel {
     
     // JFreeChart 관련
     private JFreeChart currentChart;       // 현재 차트 객체
+    private List<StressStrainPoint> currentData; // 현재 표시 중인 데이터 (시각화 업데이트용)
     
     // 차트 제어 버튼들
     private JButton zoomInButton;      // 차트 확대
@@ -204,6 +211,8 @@ public class GraphPanel extends JPanel {
                 JOptionPane.WARNING_MESSAGE);
             return;
         }
+
+        this.currentData = data; // 데이터 저장 (시각화 업데이트용)
         
         // 1. True Stress-Strain 시리즈 생성
         XYSeries trueSeries = new XYSeries("True Stress-Strain");
@@ -252,6 +261,9 @@ public class GraphPanel extends JPanel {
             // 이미 생성된 chartPanel이 있다면 차트 객체만 교체
             chartPanel.setChart(currentChart);
         }
+
+        // 7. 시각화 요소 업데이트 (UTS, 항복점 등)
+        updateGraphVisualizations();
         
         repaint();
     }
@@ -322,22 +334,191 @@ public class GraphPanel extends JPanel {
 
     public void setShowUTS(boolean show) {
         this.showUTS = show;
+        updateGraphVisualizations();
         repaint();
     }
 
     public void setShowYieldPoint(boolean show) {
         this.showYieldPoint = show;
+        updateGraphVisualizations();
         repaint();
     }
 
     public void setShowElasticRegion(boolean show) {
         this.showElasticRegion = show;
+        updateGraphVisualizations();
         repaint();
     }
 
     public void setShowPlasticRegion(boolean show) {
         this.showPlasticRegion = show;
+        updateGraphVisualizations();
         repaint();
+    }
+
+    // ========== 시각화 로직 (UTS, 항복점 등) ==========
+
+    /**
+     * 현재 설정된 플래그와 데이터에 따라 그래프 시각화 요소를 업데이트
+     */
+    private void updateGraphVisualizations() {
+        if (currentChart == null || currentData == null || currentData.isEmpty()) {
+            return;
+        }
+
+        XYPlot plot = currentChart.getXYPlot();
+        
+        // 렌더링 순서 설정: Main Dataset(0) -> Secondary Dataset(1) 순서로 그려 점이 선 위에 오도록 함
+        plot.setDatasetRenderingOrder(DatasetRenderingOrder.FORWARD);
+        
+        // 1. 기존 마커 및 어노테이션 제거
+        plot.clearAnnotations();
+        plot.clearDomainMarkers();
+
+        StressStrainPoint utsPoint = findUTSPoint(currentData);
+        StressStrainPoint yieldPoint = findYieldPoint(currentData); // 임시 로직 사용
+
+        // 2. 특수 포인트(UTS, Yield)를 위한 별도의 데이터셋 및 렌더러 준비
+        XYSeriesCollection specialPointsDataset = new XYSeriesCollection();
+        XYLineAndShapeRenderer pointRenderer = new XYLineAndShapeRenderer(false, true); // 선 끔, 모양 켬
+        pointRenderer.setAutoPopulateSeriesPaint(false);
+        pointRenderer.setAutoPopulateSeriesShape(false);
+        
+        int seriesIndex = 0;
+
+        // 3-1. UTS 포인트 처리
+        if (showUTS && utsPoint != null) {
+            // 데이터셋에 UTS 추가
+            XYSeries utsSeries = new XYSeries("UTS Point");
+            utsSeries.add(utsPoint.getTrueStrain(), utsPoint.getTrueStress());
+            specialPointsDataset.addSeries(utsSeries);
+            
+            // 렌더러 스타일 설정 (빨간색, 8x8 픽셀 원)
+            pointRenderer.setSeriesPaint(seriesIndex, Color.RED);
+            pointRenderer.setSeriesShape(seriesIndex, new Ellipse2D.Double(-4.0, -4.0, 8.0, 8.0));
+            
+            // 텍스트 라벨 (어노테이션) 추가
+            XYPointerAnnotation utsAnnotation = new XYPointerAnnotation(
+                String.format("UTS (%.1f MPa)", utsPoint.getTrueStress()),
+                utsPoint.getTrueStrain(),
+                utsPoint.getTrueStress(),
+                -Math.PI / 4.0 // 45도
+            );
+            utsAnnotation.setTipRadius(10.0);
+            utsAnnotation.setBaseRadius(35.0);
+            utsAnnotation.setFont(new Font("SansSerif", Font.BOLD, 12));
+            utsAnnotation.setPaint(Color.RED);
+            utsAnnotation.setArrowPaint(Color.RED);
+            plot.addAnnotation(utsAnnotation);
+            
+            seriesIndex++;
+        }
+
+        // 3-2. 항복점 포인트 처리
+        if (showYieldPoint && yieldPoint != null) {
+            // 데이터셋에 항복점 추가
+            XYSeries yieldSeries = new XYSeries("Yield Point");
+            yieldSeries.add(yieldPoint.getTrueStrain(), yieldPoint.getTrueStress());
+            specialPointsDataset.addSeries(yieldSeries);
+            
+            // 렌더러 스타일 설정 (녹색, 8x8 픽셀 원)
+            pointRenderer.setSeriesPaint(seriesIndex, new Color(0, 150, 0));
+            pointRenderer.setSeriesShape(seriesIndex, new Ellipse2D.Double(-4.0, -4.0, 8.0, 8.0));
+            
+            // 텍스트 라벨 (어노테이션) 추가
+            XYPointerAnnotation yieldAnnotation = new XYPointerAnnotation(
+                String.format("Yield (%.1f MPa)", yieldPoint.getTrueStress()),
+                yieldPoint.getTrueStrain(),
+                yieldPoint.getTrueStress(),
+                Math.PI / 2.0 // 90도
+            );
+            yieldAnnotation.setTipRadius(10.0);
+            yieldAnnotation.setBaseRadius(35.0);
+            yieldAnnotation.setFont(new Font("SansSerif", Font.BOLD, 12));
+            yieldAnnotation.setPaint(new Color(0, 150, 0));
+            yieldAnnotation.setArrowPaint(new Color(0, 150, 0));
+            plot.addAnnotation(yieldAnnotation);
+            
+            seriesIndex++;
+        }
+
+        // 4. Plot에 보조 데이터셋과 렌더러 적용 (Index 1번 사용)
+        if (specialPointsDataset.getSeriesCount() > 0) {
+            plot.setDataset(1, specialPointsDataset);
+            plot.setRenderer(1, pointRenderer);
+        } else {
+            plot.setDataset(1, null); // 포인트가 없으면 데이터셋 제거
+        }
+
+        // 5. 영역 표시 (IntervalMarker 유지 - Domain 축)
+        if (showElasticRegion && yieldPoint != null) {
+            IntervalMarker elasticMarker = new IntervalMarker(
+                0.0, 
+                yieldPoint.getTrueStrain()
+            );
+            elasticMarker.setPaint(new Color(0, 0, 255, 30)); // 파란색, 투명도 30
+            elasticMarker.setLabel("Elastic Region");
+            elasticMarker.setLabelFont(new Font("SansSerif", Font.ITALIC, 11));
+            elasticMarker.setLabelAnchor(RectangleAnchor.TOP_LEFT);
+            elasticMarker.setLabelTextAnchor(TextAnchor.TOP_LEFT);
+            plot.addDomainMarker(elasticMarker);
+        }
+
+        if (showPlasticRegion && yieldPoint != null) {
+            double maxStrain = currentData.get(currentData.size() - 1).getTrueStrain();
+            IntervalMarker plasticMarker = new IntervalMarker(
+                yieldPoint.getTrueStrain(),
+                maxStrain
+            );
+            plasticMarker.setPaint(new Color(255, 0, 0, 30)); // 붉은색, 투명도 30
+            plasticMarker.setLabel("Plastic Region");
+            plasticMarker.setLabelFont(new Font("SansSerif", Font.ITALIC, 11));
+            plasticMarker.setLabelAnchor(RectangleAnchor.TOP_RIGHT);
+            plasticMarker.setLabelTextAnchor(TextAnchor.TOP_RIGHT);
+            plot.addDomainMarker(plasticMarker);
+        }
+    }
+
+    /**
+     * UTS(최대 인장 강도) 점 찾기
+     * 로직: True Stress가 가장 큰 점 반환
+     */
+    private StressStrainPoint findUTSPoint(List<StressStrainPoint> data) {
+        if (data == null || data.isEmpty()) return null;
+
+        StressStrainPoint maxPoint = data.get(0);
+        for (StressStrainPoint p : data) {
+            if (p.getTrueStress() > maxPoint.getTrueStress()) {
+                maxPoint = p;
+            }
+        }
+        return maxPoint;
+    }
+
+    /**
+     * 항복점(Yield Point) 찾기 (임시 로직)
+     * // TODO: 추후 0.2% 오프셋 등 정밀 알고리즘으로 대체 필요
+     */
+    private StressStrainPoint findYieldPoint(List<StressStrainPoint> data) {
+        if (data == null || data.isEmpty()) return null;
+
+        // 임시 로직: UTS 인덱스의 약 40% 지점을 항복점으로 가정
+        // 또는 데이터가 너무 적으면 앞쪽 1/3 지점
+        StressStrainPoint utsPoint = findUTSPoint(data);
+        int utsIndex = data.indexOf(utsPoint);
+        
+        int yieldIndex;
+        if (utsIndex > 0) {
+            yieldIndex = (int) (utsIndex * 0.4);
+        } else {
+            yieldIndex = data.size() / 3;
+        }
+
+        // 인덱스 범위 체크
+        if (yieldIndex < 0) yieldIndex = 0;
+        if (yieldIndex >= data.size()) yieldIndex = data.size() - 1;
+
+        return data.get(yieldIndex);
     }
 
     // ========== 이벤트 리스너 설정 메서드들 ==========
