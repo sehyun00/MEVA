@@ -30,18 +30,18 @@ import meva.models.StressStrainPoint;
 public class GraphPanel extends JPanel {
     
     // 하위 패널들
-    private JPanel chartContainerPanel;  // ChartPanel을 담을 컨테이너
-    private JPanel chartControlPanel;
+    private JPanel chartContainerPanel; // JFreeChart 패널이 실제로 그려지는 영역
+    private JPanel chartControlPanel;   // 줌, 내보내기 등 차트 제어 버튼 영역
     
     // JFreeChart 관련
-    private ChartPanel currentChartPanel;  // 현재 표시 중인 차트 패널
-    private JFreeChart currentChart;       // 현재 차트 객체
+    private ChartPanel currentChartPanel; // 현재 화면에 표시된 JFreeChart의 Swing 컴포넌트
+    private JFreeChart currentChart;      // 생성된 JFreeChart 객체 (데이터 및 스타일 포함)
     
     // 차트 제어 버튼들
-    private JButton zoomInButton;
-    private JButton zoomOutButton;
-    private JButton resetZoomButton;
-    private JButton exportChartButton;
+    private JButton zoomInButton;      // 차트 확대 (중앙 기준)
+    private JButton zoomOutButton;     // 차트 축소 (중앙 기준)
+    private JButton resetZoomButton;   // 줌 상태 초기화 (전체 데이터 보기)
+    private JButton exportChartButton; // 현재 차트를 이미지 파일로 저장
     
     // 이벤트 리스너들
     private ActionListener zoomInListener;
@@ -74,6 +74,11 @@ public class GraphPanel extends JPanel {
     private void setupLayout() {
         setLayout(new BorderLayout());
         setBorder(BorderFactory.createTitledBorder("응력-변형률 곡선"));
+        
+        // 의도: 그래프 패널의 초기 크기 및 최소 크기 설정
+        // JSplitPane 내에서 적절한 비율로 시작하고, 너무 작아져서 그래프가 안 보이는 것을 방지
+        setPreferredSize(new Dimension(800, 600));
+        setMinimumSize(new Dimension(800, 600));
         
         // 차트 컨테이너 패널 추가 (중앙)
         add(chartContainerPanel, BorderLayout.CENTER);

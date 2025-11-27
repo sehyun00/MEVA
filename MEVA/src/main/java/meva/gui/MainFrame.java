@@ -24,20 +24,20 @@ import java.util.ArrayList;
  */
 public class MainFrame extends JFrame {
     // UI 컴포넌트
-    private MenuBar menuBar;
-    private JToolBar toolBar;
-    private JPanel mainPanel;
-    private InputPanel inputPanel;
-    private GraphPanel visualizationPanel;
-    private ResultPanel resultsPanel;
-    private JPanel statusBar;
-    private double youngsModulus;
-    private double yieldStrength;
+    private MenuBar menuBar;              // 상단 메뉴바 (File, Edit, View 등)
+    private JToolBar toolBar;             // 자주 사용하는 기능을 아이콘으로 제공하는 툴바
+    private JPanel mainPanel;             // 전체 레이아웃을 담는 메인 컨테이너
+    private InputPanel inputPanel;        // 좌측: 사용자 입력 패널
+    private GraphPanel visualizationPanel; // 중앙: 그래프 시각화 패널
+    private ResultPanel resultsPanel;     // 우측: 계산 결과 패널
+    private JPanel statusBar;             // 하단: 상태 메시지 및 진행률 표시줄
+    private double youngsModulus;         // 계산된 영률 (E) 값 저장
+    private double yieldStrength;         // 계산된 항복 강도 (σy) 값 저장
 
     // 상태바 컴포넌트
-    private JLabel statusLabel;
-    private JProgressBar progressBar;
-    private JLabel timeLabel;
+    private JLabel statusLabel;   // 현재 작업 상태 텍스트 표시
+    private JProgressBar progressBar; // 긴 작업(계산 등) 진행률 표시
+    private JLabel timeLabel;     // 현재 시간 표시
 
     // 현재 실험 ID (저장된 실험 추적용)
     private int currentExperimentId = -1;
@@ -221,6 +221,7 @@ public class MainFrame extends JFrame {
 
     /**
      * 레이아웃 설정
+     * 변경사항: JSplitPane을 사용하여 패널 간 크기 조절이 가능하도록 구조 변경
      */
     private void setupLayout() {
         setLayout(new BorderLayout());
@@ -232,13 +233,45 @@ public class MainFrame extends JFrame {
         add(toolBar, BorderLayout.NORTH);
 
         // 메인 패널 구성
-        mainPanel.add(inputPanel, BorderLayout.WEST);
-        mainPanel.add(visualizationPanel, BorderLayout.CENTER);
-        mainPanel.add(resultsPanel, BorderLayout.EAST);
+        // 의도: 기존 BorderLayout 고정 배치 대신, 사용자가 각 패널(입력, 그래프, 결과)의
+        // 너비를 작업 환경에 맞춰 유동적으로 조절할 수 있도록 JSplitPane 구조 도입
+        mainPanel.add(createSplitPaneLayout(), BorderLayout.CENTER);
+        
         add(mainPanel, BorderLayout.CENTER);
 
         // StatusBar 추가 (SOUTH)
         add(statusBar, BorderLayout.SOUTH);
+    }
+
+    /**
+     * 입력, 시각화, 결과 패널을 포함하는 JSplitPane 레이아웃을 생성합니다.
+     * 구조: [InputPanel] <-> [RightPanel: [VisualizationPanel] <-> [ResultsPanel]]
+     * 
+     * @return 구성이 완료된 최상위 JSplitPane
+     */
+    private JSplitPane createSplitPaneLayout() {
+        // 1. 오른쪽 영역 분할 (Visualization vs Results)
+        // 의도: 시각화 그래프가 가장 중요한 정보이므로 여유 공간을 모두 그래프에 할당 (Weight 1.0)
+        // 결과 테이블은 preferredSize(최소값)를 유지
+        JSplitPane graphResultSplit = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT,
+                visualizationPanel, resultsPanel);
+        graphResultSplit.setResizeWeight(1.0); // 그래프 패널이 남는 공간을 모두 차지
+        graphResultSplit.setOneTouchExpandable(true); // 원터치 접기/펴기 기능 활성화
+
+        // 2. 오른쪽 패널 컨테이너 (JSplitPane 래퍼)
+        // 의도: 중첩된 구조를 안정적으로 배치하기 위해 JPanel로 감쌈
+        JPanel rightPanel = new JPanel(new BorderLayout());
+        rightPanel.add(graphResultSplit, BorderLayout.CENTER);
+
+        // 3. 전체 영역 분할 (Input vs RightPanel)
+        // 의도: 입력 패널은 최소 너비(preferredSize) 유지, 나머지 공간은 오른쪽(그래프+결과)에 할당 (Weight 0.0)
+        // rightPanel 내부에서 다시 그래프가 공간을 가져감 -> 최종적으로 그래프가 최대화됨
+        JSplitPane leftRightSplit = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT,
+                inputPanel, rightPanel);
+        leftRightSplit.setResizeWeight(0.0); // 입력 패널은 고정, 오른쪽 패널 확장
+        leftRightSplit.setOneTouchExpandable(true);
+
+        return leftRightSplit;
     }
 
     /**
@@ -247,8 +280,13 @@ public class MainFrame extends JFrame {
     private void setupFrame() {
         setTitle("MEVA - Materials Engineering Visualization and Analysis");
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        setSize(1280, 800);
-        setMinimumSize(new Dimension(1024, 768));
+        setSize(1600, 900);
+        
+        // 최소 크기 설정 (각 패널의 최소 너비 합계 고려)
+        // Input(280) + Graph(800) + Result(300) + Dividers/Borders ≈ 1400
+        // 의도: 사용자가 설정한 각 패널의 최소 너비를 보장하기 위해 프레임 전체의 최소 크기를 제한함
+        setMinimumSize(new Dimension(1400, 768));
+        
         setLocationRelativeTo(null);
     }
 
