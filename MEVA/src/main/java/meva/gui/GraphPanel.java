@@ -36,6 +36,12 @@ public class GraphPanel extends JPanel {
     private JPanel buttonsPanel;            // 우측: 줌, 리셋, 내보내기 등 버튼 영역 (EAST)
     private JPanel placeholderPanel;        // 차트가 없을 때 표시할 안내 패널
 
+    // 옵션 체크박스들
+    private JCheckBox utsCheckBox;
+    private JCheckBox yieldCheckBox;
+    private JCheckBox elasticRegionCheckBox;
+    private JCheckBox plasticRegionCheckBox;
+
     // 상태 플래그 (향후 확장용 - UTS, 항복점, 영역 표시 등)
     private boolean showUTS;
     private boolean showYieldPoint;
@@ -74,7 +80,7 @@ public class GraphPanel extends JPanel {
         
         // 1-1. 옵션 패널 (좌측, FlowLayout LEFT)
         optionsPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
-        // TODO: 향후 UTS, 항복점, 탄성/소성 영역 표시 체크박스 추가 예정
+        createOptionCheckBoxes(); // 체크박스 생성 및 추가
         
         // 1-2. 버튼 패널 (우측, FlowLayout RIGHT)
         buttonsPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
@@ -92,6 +98,31 @@ public class GraphPanel extends JPanel {
         placeholderLabel.setFont(new Font("Dialog", Font.PLAIN, 14));
         placeholderLabel.setForeground(new Color(117, 117, 117));
         placeholderPanel.add(placeholderLabel, BorderLayout.CENTER);
+    }
+
+    /**
+     * 옵션 체크박스 생성 및 패널 추가 헬퍼 메서드
+     */
+    private void createOptionCheckBoxes() {
+        // UTS 표시 체크박스
+        utsCheckBox = new JCheckBox("UTS 표시");
+        utsCheckBox.addActionListener(e -> setShowUTS(utsCheckBox.isSelected()));
+        optionsPanel.add(utsCheckBox);
+
+        // 항복점 표시 체크박스
+        yieldCheckBox = new JCheckBox("항복점 표시");
+        yieldCheckBox.addActionListener(e -> setShowYieldPoint(yieldCheckBox.isSelected()));
+        optionsPanel.add(yieldCheckBox);
+
+        // 탄성 영역 표시 체크박스
+        elasticRegionCheckBox = new JCheckBox("탄성 영역");
+        elasticRegionCheckBox.addActionListener(e -> setShowElasticRegion(elasticRegionCheckBox.isSelected()));
+        optionsPanel.add(elasticRegionCheckBox);
+
+        // 소성 영역 표시 체크박스
+        plasticRegionCheckBox = new JCheckBox("소성 영역");
+        plasticRegionCheckBox.addActionListener(e -> setShowPlasticRegion(plasticRegionCheckBox.isSelected()));
+        optionsPanel.add(plasticRegionCheckBox);
     }
 
     /**
