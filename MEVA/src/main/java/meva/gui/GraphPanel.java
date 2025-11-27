@@ -43,7 +43,7 @@ import meva.models.StressStrainPoint;
 public class GraphPanel extends JPanel {
     
     // UI 컴포넌트
-    private ChartPanel chartPanel;          // JFreeChart를 표시하는 메인 패널 (CENTER)
+    private CustomChartPanel chartPanel;          // JFreeChart를 표시하는 메인 패널 (CENTER)
     private JPanel graphControlPanel;       // 하단 제어 영역 전체 (SOUTH)
     private JPanel optionsPanel;            // 좌측: 체크박스 등 옵션 영역 (WEST)
     private JPanel buttonsPanel;            // 우측: 줌, 리셋, 내보내기 등 버튼 영역 (EAST)
@@ -254,10 +254,20 @@ public class GraphPanel extends JPanel {
         // 5. 차트 스타일 설정
         customizeChart(currentChart);
         
+        // 차트의 Plot에 패닝 기능 활성화 (필수)
+        XYPlot plot = currentChart.getXYPlot();
+        plot.setDomainPannable(true);
+        plot.setRangePannable(true);
+        
         // 6. ChartPanel 설정 (재사용 구조)
         if (chartPanel == null) {
-            chartPanel = new ChartPanel(currentChart);
+            chartPanel = new CustomChartPanel(currentChart);
             chartPanel.setMouseWheelEnabled(true);  // 마우스 휠 줌 활성화
+            
+            // 패닝(화면 이동) 기능 활성화
+            chartPanel.setDomainPannable(true);
+            chartPanel.setRangePannable(true);
+
             // 배경색을 흰색으로 설정하여 깔끔하게 표시
             chartPanel.setBackground(Color.WHITE);
             
@@ -288,6 +298,10 @@ public class GraphPanel extends JPanel {
         } else {
             // 이미 생성된 chartPanel이 있다면 차트 객체만 교체
             chartPanel.setChart(currentChart);
+            
+            // 차트 교체 후 패닝 설정 재적용 (새 Plot에 적용)
+            chartPanel.setDomainPannable(true);
+            chartPanel.setRangePannable(true);
         }
 
         // 7. 시각화 요소 업데이트 (UTS, 항복점 등)
