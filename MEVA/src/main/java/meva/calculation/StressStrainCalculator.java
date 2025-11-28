@@ -300,4 +300,56 @@ public class StressStrainCalculator {
         return filtered;
     }
 
+    /**
+     * 데이터의 시작점을 (0,0)으로 강제 이동시키는 메서드 추가
+     */
+    public List<StressStrainPoint> applyZeroOffset(List<StressStrainPoint> points) {
+        if (points == null || points.isEmpty()) {
+            return points;
+        }
+
+        // 1. 응력이 상승하기 시작하는 '진짜 시작점' 찾기
+        // (초기 노이즈를 건너뛰기 위해 응력이 5MPa 이상인 첫 지점을 찾음)
+        double startStrain = 0.0;
+        double startStress = 0.0;
+        boolean foundStart = false;
+
+        for (StressStrainPoint p : points) {
+            if (p.getTrueStress() > 5.0) { // 5 MPa 이상을 시작점으로 간주
+                startStrain = p.getTrueStrain();
+                startStress = p.getTrueStress();
+                foundStart = true;
+                break;
+            }
+        }
+
+        // 시작점을 못 찾았으면(데이터가 너무 작음) 그냥 첫 포인트 기준
+        if (!foundStart) {
+            startStrain = points.get(0).getTrueStrain();
+            startStress = points.get(0).getTrueStress();
+        }
+
+        // 2. 모든 포인트를 시작점만큼 뺌 (Shift)
+        List<StressStrainPoint> correctedPoints = new ArrayList<>();
+        for (StressStrainPoint p : points) {
+            // 시작점 이전의 데이터는 버림 (음수 되니까)
+            if (p.getTrueStrain() >= startStrain) {
+                double newStrain = p.getTrueStrain() - startStrain;
+                double newStress = p.getTrueStress(); // 응력은 보통 0부터 시작하므로 그대로 두거나 필요시 startStress를 뺌
+
+                // 만약 응력도 0이 아닌 곳에서 시작했다면:
+                // double newStress = p.getTrueStress() - startStress;
+
+                correctedPoints.add(new StressStrainPoint(
+                        newStress,
+                        newStrain,
+                        p.getEngineeringStress(),
+                        p.getEngineeringStrain() - startStrain // 공칭 변형률도 보정
+                ));
+            }
+        }
+
+        return correctedPoints;
+    }
+
 }
