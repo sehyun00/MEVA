@@ -2,6 +2,7 @@ package meva.calculation;
 
 import meva.models.TestData;
 import meva.models.StressStrainPoint;
+import meva.models.AnalysisResult;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -11,6 +12,103 @@ import java.util.List;
  * @author 이태윤
  */
 public class MaterialProperties {
+
+    /**
+     * 전체 데이터에 대한 물성 분석을 수행하여 결과를 반환합니다.
+     * 
+     * @param points 응력-변형률 데이터 리스트
+     * @return 분석 결과 객체 (AnalysisResult)
+     */
+    public AnalysisResult analyze(List<StressStrainPoint> points) {
+        AnalysisResult result = new AnalysisResult();
+        
+        if (points == null || points.isEmpty()) {
+            return result;
+        }
+
+        // 1. 기초 물성 계산
+        double youngsModulus = calculateYoungsModulus(points);
+        double yieldStrength = calculateYieldStrength(points, youngsModulus); // 0.2% Offset
+        
+        // 2. 주요 포인트 찾기 (UTS, Yield, Fracture)
+        StressStrainPoint utsPoint = findUTSPoint(points);
+        StressStrainPoint yieldPoint = findYieldPoint(points, yieldStrength);
+        StressStrainPoint fracturePoint = points.get(points.size() - 1);
+
+        // 3. 결과 객체에 매핑
+        result.setYoungsModulus(youngsModulus);
+        result.setYieldStrength(yieldStrength);
+        result.setTensileStrength(utsPoint != null ? utsPoint.getEngineeringStress() : 0.0); // UTS는 Engineering 기준
+        
+        result.setUtsPoint(utsPoint);
+        result.setYieldPoint(yieldPoint);
+        result.setFracturePoint(fracturePoint);
+
+        // 4. 기타 물성 계산
+        result.setElongation(calculateElongation(points));
+        result.setReductionOfArea(calculateReductionOfArea(points));
+        result.setToughness(calculateToughness(points));
+        result.setResilience(calculateResilience(points, yieldStrength));
+        result.setElasticLimit(calculateElasticLimit(points, youngsModulus));
+        result.setProportionalLimit(calculateProportionalLimit(points, youngsModulus));
+        result.setNeckingStartStrain(utsPoint != null ? utsPoint.getEngineeringStrain() : 0.0);
+        result.setFractureStress(calculateFractureStress(points));
+        result.setFractureStrain(calculateFractureStrain(points));
+
+        return result;
+    }
+
+    /**
+     * [MEVA 정의] UTS 포인트 찾기
+     * 기준: Engineering Stress-Strain Curve
+     * 정의: Max Engineering Stress
+     * 동률 처리: 변형률이 가장 작은(먼저 도달한) 포인트 선택
+     * 
+     * @param points 데이터 리스트
+     * @return UTS StressStrainPoint
+     */
+    public StressStrainPoint findUTSPoint(List<StressStrainPoint> points) {
+        if (points == null || points.isEmpty()) return null;
+
+        StressStrainPoint utsPoint = null;
+        double maxEngStress = -1.0;
+
+        for (StressStrainPoint p : points) {
+            double currentEngStress = p.getEngineeringStress();
+
+            if (currentEngStress > maxEngStress) {
+                // 새로운 최대값 발견
+                maxEngStress = currentEngStress;
+                utsPoint = p;
+            } else if (currentEngStress == maxEngStress) {
+                // 동률 발생 시: 변형률(Strain)이 더 작은 쪽을 선택 (먼저 발생한 피크)
+                if (utsPoint != null && p.getEngineeringStrain() < utsPoint.getEngineeringStrain()) {
+                    utsPoint = p;
+                }
+            }
+        }
+        return utsPoint;
+    }
+
+    /**
+     * 항복 강도 값에 해당하는 실제 데이터 포인트 찾기 (그래프 마킹용)
+     * True Stress 기준으로 가장 가까운 점을 찾습니다.
+     */
+    private StressStrainPoint findYieldPoint(List<StressStrainPoint> points, double targetStress) {
+        if (points == null || points.isEmpty()) return null;
+        
+        StressStrainPoint closest = null;
+        double minDiff = Double.MAX_VALUE;
+
+        for (StressStrainPoint p : points) {
+            double diff = Math.abs(p.getTrueStress() - targetStress);
+            if (diff < minDiff) {
+                minDiff = diff;
+                closest = p;
+            }
+        }
+        return closest;
+    }
 
     /**
      * 영률(Young's Modulus) 계산

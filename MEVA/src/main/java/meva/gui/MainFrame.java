@@ -8,12 +8,12 @@ import meva.models.DataPoint;
 import meva.models.StressStrainPoint;
 import meva.models.Experiment;
 import meva.database.ExperimentDAO;
+import meva.models.AnalysisResult;
 import javax.swing.SwingWorker;
 import java.io.IOException;
 import java.util.List;
 import java.time.LocalDate;
 import meva.calculation.MaterialProperties;
-import java.util.ArrayList;
 
 /**
  * MEVA 애플리케이션의 메인 윈도우 프레임
@@ -32,19 +32,6 @@ public class MainFrame extends JFrame {
     private ResultPanel resultsPanel;     // 우측: 계산 결과 패널
     private JPanel statusBar;             // 하단: 상태 메시지 및 진행률 표시줄
     
-    // 계산 결과 값 저장 필드
-    private double youngsModulus;         // 영률 (E)
-    private double yieldStrength;         // 항복 강도 (σy)
-    private double elongation;            // 연신율
-    private double reductionOfArea;       // 단면 감소율
-    private double toughness;             // 인성
-    private double resilience;            // 탄성 에너지
-    private double elasticLimit;          // 탄성 한계
-    private double proportionalLimit;     // 비례 한계
-    private double neckingStartStrain;    // 네킹 시작 변형률
-    private double fractureStress;        // 파괴 응력
-    private double fractureStrain;        // 파괴 변형률
-
     // 상태바 컴포넌트
     private JLabel statusLabel;   // 현재 작업 상태 텍스트 표시
     private JProgressBar progressBar; // 긴 작업(계산 등) 진행률 표시
@@ -409,8 +396,7 @@ public class MainFrame extends JFrame {
         SwingWorker<Void, Void> worker = new SwingWorker<Void, Void>() {
             private List<StressStrainPoint> stressStrainData;
             private String errorMessage;
-            private double maxStress;
-            private double strainAtMaxStress;
+            private AnalysisResult analysisResult; // 분석 결과 객체
 
             @Override
             protected Void doInBackground() throws Exception {
@@ -428,58 +414,30 @@ public class MainFrame extends JFrame {
                     convertedData = calculator.cleanData(convertedData);
                     convertedData = calculator.applyZeroOffset(convertedData); 
 
-                    // 스무딩 전 데이터를 별도 저장 (영률 계산용)
-                    List<StressStrainPoint> rawStressStrainData = new ArrayList<>(convertedData);
-                    System.out.println("클리닝 완료: " + rawStressStrainData.size() + "개 포인트");
-
-                    // 4. 노이즈 제거 (스무딩) - 그래프 및 대부분의 계산용
+                    // 4. 노이즈 제거 (스무딩)
                     int windowSize = 20;
                     convertedData = calculator.smoothData(convertedData, windowSize);
                     System.out.println("스무딩 완료 (window size: " + windowSize + ")");
 
                     // ⭐ 필드에 할당 (done()에서 사용)
                     this.stressStrainData = convertedData;
-                    System.out.println("최종 데이터 포인트: " + stressStrainData.size());
 
-                    // 5. 계산 결과 생성
-                    maxStress = calculator.findMaxStress(stressStrainData);
-                    strainAtMaxStress = calculator.findStrainAtMaxStress(stressStrainData);
-
-                    // 6. 재료 물성 계산
+                    // 5. 통합 재료 물성 분석 수행 (MaterialProperties.analyze)
                     MaterialProperties materialProps = new MaterialProperties();
+                    // analyze 메서드 내부에서 UTS, Yield 등 모든 물성을 한 번에 계산
+                    this.analysisResult = materialProps.analyze(stressStrainData);
 
-                    // 영률은 스무딩 전 원본 데이터로 계산
-                    System.out.println("\n=== 영률 계산 (원본 데이터 사용) ===");
-                    youngsModulus = materialProps.calculateYoungsModulus(rawStressStrainData);
+                    System.out.println("\n=== 분석 완료 ===");
+                    System.out.println("UTS Point: " + (analysisResult.getUtsPoint() != null ? "Found" : "Not Found"));
+                    System.out.println("Yield Point: " + (analysisResult.getYieldPoint() != null ? "Found" : "Not Found"));
 
-                    // 나머지는 스무딩된 데이터로 계산
-                    System.out.println("\n=== 기타 물성 계산 (스무딩 데이터 사용) ===");
-                    yieldStrength = materialProps.calculateYieldStrength(stressStrainData, youngsModulus);
-                    elongation = materialProps.calculateElongation(stressStrainData);
-                    reductionOfArea = materialProps.calculateReductionOfArea(stressStrainData);
-                    toughness = materialProps.calculateToughness(stressStrainData);
-                    resilience = materialProps.calculateResilience(stressStrainData, yieldStrength);
-                    elasticLimit = materialProps.calculateElasticLimit(rawStressStrainData, youngsModulus);
-                    proportionalLimit = materialProps.calculateProportionalLimit(rawStressStrainData, youngsModulus);
-                    neckingStartStrain = materialProps.calculateNeckingStartStrain(stressStrainData, maxStress);
-                    fractureStress = materialProps.calculateFractureStress(stressStrainData);
-                    fractureStrain = materialProps.calculateFractureStrain(stressStrainData);
-
-                    System.out.println("\n=== 계산된 재료 물성 ===");
-                    System.out.println("영률 (E): " + youngsModulus + " GPa");
-                    System.out.println("항복 강도 (σy): " + yieldStrength + " MPa");
-                    System.out.println("연신율: " + elongation + " %");
-                    System.out.println("단면 감소율: " + reductionOfArea + " %");
-                    System.out.println("인성: " + toughness + " MJ/m³");
-                    System.out.println("탄성 에너지: " + resilience + " MJ/m³");
-                    System.out.println("탄성 한계: " + elasticLimit + " MPa");
-                    System.out.println("비례 한계: " + proportionalLimit + " MPa");
-                    System.out.println("네킹 시작 변형률: " + neckingStartStrain);
-                    System.out.println("파괴 응력: " + fractureStress + " MPa");
-                    System.out.println("파괴 변형률: " + fractureStrain);
-
-                    // 7. DB에 실험 데이터 저장
-                    saveExperimentToDatabase(filePath, maxStress, strainAtMaxStress);
+                    // 6. DB에 실험 데이터 저장
+                    // UTS와 그 시점의 변형률(Engineering Strain)을 저장
+                    if (analysisResult.getUtsPoint() != null) {
+                        saveExperimentToDatabase(filePath, 
+                            analysisResult.getTensileStrength(), 
+                            analysisResult.getUtsPoint().getEngineeringStrain());
+                    }
 
                 } catch (IOException e) {
                     errorMessage = "파일 읽기 실패: " + e.getMessage();
@@ -504,25 +462,27 @@ public class MainFrame extends JFrame {
                     return;
                 }
 
-                // 4. 그래프에 표시
+                // 4. 그래프에 데이터 및 분석 결과 표시
                 visualizationPanel.plotStressStrainCurve(stressStrainData);
+                visualizationPanel.setAnalysisResult(analysisResult); // ⭐ 마커 표시를 위해 필수
 
-                // 5. 결과 패널 업데이트// 5. 결과 패널 업데이트
+                // 5. 결과 패널 업데이트
+                // AnalysisResult 객체에서 값을 가져와 테이블 갱신
                 Object[][] resultsData = {
-                        { "최대 응력 (σmax)", String.format("%.2f", maxStress), "MPa" },
-                        { "최대 응력 시 변형률 (εmax)", String.format("%.4f", strainAtMaxStress), "-" },
-                        { "극한 인장 강도 (UTS)", String.format("%.2f", maxStress), "MPa" },
-                        { "영률 (E)", String.format("%.2f", youngsModulus), "GPa" },
-                        { "항복 강도 (σy)", String.format("%.2f", yieldStrength), "MPa" },
-                        { "연신율", String.format("%.2f", elongation), "%" },
-                        { "단면 감소율", String.format("%.2f", reductionOfArea), "%" },
-                        { "인성", String.format("%.2f", toughness), "MJ/m³" },
-                        { "탄성 에너지", String.format("%.2f", resilience), "MJ/m³" },
-                        { "탄성 한계", elasticLimit > 0 ? String.format("%.2f", elasticLimit) : "-", "MPa" },
-                        { "비례 한계", proportionalLimit > 0 ? String.format("%.2f", proportionalLimit) : "-", "MPa" },
-                        { "네킹 시작 변형률", neckingStartStrain > 0 ? String.format("%.4f", neckingStartStrain) : "-", "-" },
-                        { "파괴 응력", fractureStress > 0 ? String.format("%.2f", fractureStress) : "-", "MPa" },
-                        { "파괴 변형률", fractureStrain > 0 ? String.format("%.4f", fractureStrain) : "-", "-" }
+                        { "최대 응력 (σmax)", String.format("%.2f", analysisResult.getTensileStrength()), "MPa" },
+                        { "최대 응력 시 변형률 (εmax)", String.format("%.4f", analysisResult.getNeckingStartStrain()), "-" },
+                        { "극한 인장 강도 (UTS)", String.format("%.2f", analysisResult.getTensileStrength()), "MPa" },
+                        { "영률 (E)", String.format("%.2f", analysisResult.getYoungsModulus()), "GPa" },
+                        { "항복 강도 (σy)", String.format("%.2f", analysisResult.getYieldStrength()), "MPa" },
+                        { "연신율", String.format("%.2f", analysisResult.getElongation()), "%" },
+                        { "단면 감소율", String.format("%.2f", analysisResult.getReductionOfArea()), "%" },
+                        { "인성", String.format("%.2f", analysisResult.getToughness()), "MJ/m³" },
+                        { "탄성 에너지", String.format("%.2f", analysisResult.getResilience()), "MJ/m³" },
+                        { "탄성 한계", analysisResult.getElasticLimit() > 0 ? String.format("%.2f", analysisResult.getElasticLimit()) : "-", "MPa" },
+                        { "비례 한계", analysisResult.getProportionalLimit() > 0 ? String.format("%.2f", analysisResult.getProportionalLimit()) : "-", "MPa" },
+                        { "네킹 시작 변형률", analysisResult.getNeckingStartStrain() > 0 ? String.format("%.4f", analysisResult.getNeckingStartStrain()) : "-", "-" },
+                        { "파괴 응력", analysisResult.getFractureStress() > 0 ? String.format("%.2f", analysisResult.getFractureStress()) : "-", "MPa" },
+                        { "파괴 변형률", analysisResult.getFractureStrain() > 0 ? String.format("%.4f", analysisResult.getFractureStrain()) : "-", "-" }
                 };
 
                 resultsPanel.updateResults(resultsData);

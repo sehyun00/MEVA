@@ -32,13 +32,14 @@ import org.jfree.chart.ui.TextAnchor;
 
 // MEVA models
 import meva.models.StressStrainPoint;
+import meva.models.AnalysisResult;
 
 /**
  * 응력-변형률 곡선 그래프를 표시하는 패널
  * GUI 설계 문서에 따른 완전한 구현
  * 
  * @author MEVA 개발팀
- * @version 1.2 - 리팩토링: 확장성을 고려한 레이아웃 및 제어 구조 개선
+ * @version 1.3 - 리팩토링: MVC 패턴 적용 (계산 로직 제거)
  */
 public class GraphPanel extends JPanel {
     
@@ -55,7 +56,7 @@ public class GraphPanel extends JPanel {
     private JCheckBox elasticRegionCheckBox;
     private JCheckBox plasticRegionCheckBox;
 
-    // 상태 플래그 (향후 확장용 - UTS, 항복점, 영역 표시 등)
+    // 상태 플래그
     private boolean showUTS;
     private boolean showYieldPoint;
     private boolean showElasticRegion;
@@ -64,6 +65,7 @@ public class GraphPanel extends JPanel {
     // JFreeChart 관련
     private JFreeChart currentChart;       // 현재 차트 객체
     private List<StressStrainPoint> currentData; // 현재 표시 중인 데이터 (시각화 업데이트용)
+    private AnalysisResult analysisResult;       // 물성 분석 결과 (그래프 마킹용)
     private Point2D mousePoint; // 크로스헤어 표시용 마우스 좌표
     
     // 차트 제어 버튼들
@@ -372,6 +374,17 @@ public class GraphPanel extends JPanel {
         return chartPanel;
     }
     
+    /**
+     * 외부에서 계산된 분석 결과를 설정하고 그래프 시각화 요소를 갱신합니다. (MVC 패턴)
+     * 
+     * @param result 계산된 물성 분석 결과
+     */
+    public void setAnalysisResult(AnalysisResult result) {
+        this.analysisResult = result;
+        updateGraphVisualizations();
+        repaint();
+    }
+
     // ========== 상태 플래그 Setter 메서드들 (향후 확장용) ==========
 
     public void setShowUTS(boolean show) {
@@ -401,7 +414,7 @@ public class GraphPanel extends JPanel {
     // ========== 시각화 로직 (UTS, 항복점 등) ==========
 
     /**
-     * 현재 설정된 플래그와 데이터에 따라 그래프 시각화 요소를 업데이트
+     * 현재 설정된 플래그와 데이터(AnalysisResult)에 따라 그래프 시각화 요소를 업데이트
      */
     private void updateGraphVisualizations() {
         if (currentChart == null || currentData == null || currentData.isEmpty()) {
@@ -417,8 +430,11 @@ public class GraphPanel extends JPanel {
         plot.clearAnnotations();
         plot.clearDomainMarkers();
 
-        StressStrainPoint utsPoint = findUTSPoint(currentData);
-        StressStrainPoint yieldPoint = findYieldPoint(currentData); // 임시 로직 사용
+        // 분석 결과가 아직 없으면 시각화 건너뜀
+        if (analysisResult == null) return;
+
+        StressStrainPoint utsPoint = analysisResult.getUtsPoint();
+        StressStrainPoint yieldPoint = analysisResult.getYieldPoint();
 
         // 2. 특수 포인트(UTS, Yield)를 위한 별도의 데이터셋 및 렌더러 준비
         XYSeriesCollection specialPointsDataset = new XYSeriesCollection();
@@ -430,9 +446,9 @@ public class GraphPanel extends JPanel {
 
         // 3-1. UTS 포인트 처리
         if (showUTS && utsPoint != null) {
-            // 데이터셋에 UTS 추가
+            // 데이터셋에 UTS 추가 (Engineering Stress 기준)
             XYSeries utsSeries = new XYSeries("UTS Point");
-            utsSeries.add(utsPoint.getTrueStrain(), utsPoint.getTrueStress());
+            utsSeries.add(utsPoint.getEngineeringStrain(), utsPoint.getEngineeringStress());
             specialPointsDataset.addSeries(utsSeries);
             
             // 렌더러 스타일 설정 (빨간색, 8x8 픽셀 원)
@@ -441,9 +457,9 @@ public class GraphPanel extends JPanel {
             
             // 텍스트 라벨 (어노테이션) 추가
             XYPointerAnnotation utsAnnotation = new XYPointerAnnotation(
-                String.format("UTS (%.1f MPa)", utsPoint.getTrueStress()),
-                utsPoint.getTrueStrain(),
-                utsPoint.getTrueStress(),
+                String.format("UTS (%.1f MPa)", utsPoint.getEngineeringStress()),
+                utsPoint.getEngineeringStrain(),
+                utsPoint.getEngineeringStress(),
                 -Math.PI / 4.0 // 45도
             );
             utsAnnotation.setTipRadius(10.0);
@@ -493,74 +509,34 @@ public class GraphPanel extends JPanel {
         }
 
         // 5. 영역 표시 (IntervalMarker 유지 - Domain 축)
-        if (showElasticRegion && yieldPoint != null) {
-            IntervalMarker elasticMarker = new IntervalMarker(
-                0.0, 
-                yieldPoint.getTrueStrain()
-            );
-            elasticMarker.setPaint(new Color(0, 0, 255, 30)); // 파란색, 투명도 30
-            elasticMarker.setLabel("Elastic Region");
-            elasticMarker.setLabelFont(new Font("SansSerif", Font.ITALIC, 11));
-            elasticMarker.setLabelAnchor(RectangleAnchor.TOP_LEFT);
-            elasticMarker.setLabelTextAnchor(TextAnchor.TOP_LEFT);
-            plot.addDomainMarker(elasticMarker);
-        }
+        if (yieldPoint != null) {
+            if (showElasticRegion) {
+                IntervalMarker elasticMarker = new IntervalMarker(
+                    0.0, 
+                    yieldPoint.getTrueStrain()
+                );
+                elasticMarker.setPaint(new Color(0, 0, 255, 30)); // 파란색, 투명도 30
+                elasticMarker.setLabel("Elastic Region");
+                elasticMarker.setLabelFont(new Font("SansSerif", Font.ITALIC, 11));
+                elasticMarker.setLabelAnchor(RectangleAnchor.TOP_LEFT);
+                elasticMarker.setLabelTextAnchor(TextAnchor.TOP_LEFT);
+                plot.addDomainMarker(elasticMarker);
+            }
 
-        if (showPlasticRegion && yieldPoint != null) {
-            double maxStrain = currentData.get(currentData.size() - 1).getTrueStrain();
-            IntervalMarker plasticMarker = new IntervalMarker(
-                yieldPoint.getTrueStrain(),
-                maxStrain
-            );
-            plasticMarker.setPaint(new Color(255, 0, 0, 30)); // 붉은색, 투명도 30
-            plasticMarker.setLabel("Plastic Region");
-            plasticMarker.setLabelFont(new Font("SansSerif", Font.ITALIC, 11));
-            plasticMarker.setLabelAnchor(RectangleAnchor.TOP_RIGHT);
-            plasticMarker.setLabelTextAnchor(TextAnchor.TOP_RIGHT);
-            plot.addDomainMarker(plasticMarker);
-        }
-    }
-
-    /**
-     * UTS(최대 인장 강도) 점 찾기
-     * 로직: True Stress가 가장 큰 점 반환
-     */
-    private StressStrainPoint findUTSPoint(List<StressStrainPoint> data) {
-        if (data == null || data.isEmpty()) return null;
-
-        StressStrainPoint maxPoint = data.get(0);
-        for (StressStrainPoint p : data) {
-            if (p.getTrueStress() > maxPoint.getTrueStress()) {
-                maxPoint = p;
+            if (showPlasticRegion) {
+                double maxStrain = currentData.get(currentData.size() - 1).getTrueStrain();
+                IntervalMarker plasticMarker = new IntervalMarker(
+                    yieldPoint.getTrueStrain(),
+                    maxStrain
+                );
+                plasticMarker.setPaint(new Color(255, 0, 0, 30)); // 붉은색, 투명도 30
+                plasticMarker.setLabel("Plastic Region");
+                plasticMarker.setLabelFont(new Font("SansSerif", Font.ITALIC, 11));
+                plasticMarker.setLabelAnchor(RectangleAnchor.TOP_RIGHT);
+                plasticMarker.setLabelTextAnchor(TextAnchor.TOP_RIGHT);
+                plot.addDomainMarker(plasticMarker);
             }
         }
-        return maxPoint;
-    }
-
-    /**
-     * 항복점(Yield Point) 찾기 (임시 로직)
-     * // TODO: 추후 0.2% 오프셋 등 정밀 알고리즘으로 대체 필요
-     */
-    private StressStrainPoint findYieldPoint(List<StressStrainPoint> data) {
-        if (data == null || data.isEmpty()) return null;
-
-        // 임시 로직: UTS 인덱스의 약 40% 지점을 항복점으로 가정
-        // 또는 데이터가 너무 적으면 앞쪽 1/3 지점
-        StressStrainPoint utsPoint = findUTSPoint(data);
-        int utsIndex = data.indexOf(utsPoint);
-        
-        int yieldIndex;
-        if (utsIndex > 0) {
-            yieldIndex = (int) (utsIndex * 0.4);
-        } else {
-            yieldIndex = data.size() / 3;
-        }
-
-        // 인덱스 범위 체크
-        if (yieldIndex < 0) yieldIndex = 0;
-        if (yieldIndex >= data.size()) yieldIndex = data.size() - 1;
-
-        return data.get(yieldIndex);
     }
 
     // ========== 이벤트 리스너 설정 메서드들 ==========
