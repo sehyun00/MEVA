@@ -468,12 +468,19 @@ public class MainFrame extends JFrame {
 
                 // 5. 결과 패널 업데이트
                 // AnalysisResult 객체에서 값을 가져와 테이블 갱신
+                String yieldLabel = "항복 강도 (σy)";
+                if (analysisResult.getYieldType() == AnalysisResult.YieldType.OFFSET_02) {
+                    yieldLabel += " (0.2% Offset)";
+                } else if (analysisResult.getYieldType() == AnalysisResult.YieldType.DISCONTINUOUS) {
+                    yieldLabel += " (Upper Yield)";
+                }
+
                 Object[][] resultsData = {
                         { "최대 응력 (σmax)", String.format("%.2f", analysisResult.getTensileStrength()), "MPa" },
                         { "최대 응력 시 변형률 (εmax)", String.format("%.4f", analysisResult.getNeckingStartStrain()), "-" },
                         { "극한 인장 강도 (UTS)", String.format("%.2f", analysisResult.getTensileStrength()), "MPa" },
                         { "영률 (E)", String.format("%.2f", analysisResult.getYoungsModulus()), "GPa" },
-                        { "항복 강도 (σy)", String.format("%.2f", analysisResult.getYieldStrength()), "MPa" },
+                        { yieldLabel, String.format("%.2f", analysisResult.getYieldStrength()), "MPa" },
                         { "연신율", String.format("%.2f", analysisResult.getElongation()), "%" },
                         { "단면 감소율", String.format("%.2f", analysisResult.getReductionOfArea()), "%" },
                         { "인성", String.format("%.2f", analysisResult.getToughness()), "MJ/m³" },

@@ -46,13 +46,13 @@ public class GraphPanel extends JPanel {
     // UI 컴포넌트
     private CustomChartPanel chartPanel;          // JFreeChart를 표시하는 메인 패널 (CENTER)
     private JPanel graphControlPanel;       // 하단 제어 영역 전체 (SOUTH)
-    private JPanel optionsPanel;            // 좌측: 체크박스 등 옵션 영역 (WEST)
-    private JPanel buttonsPanel;            // 우측: 줌, 리셋, 내보내기 등 버튼 영역 (EAST)
     private JPanel placeholderPanel;        // 차트가 없을 때 표시할 안내 패널
 
     // 옵션 체크박스들
     private JCheckBox utsCheckBox;
     private JCheckBox yieldCheckBox;
+    private JComboBox<String> yieldModeComboBox; // 항복점 모드 선택 콤보박스
+    private JComboBox<String> markerRefComboBox; // 마커 기준 선택 (Engineering vs True)
     private JCheckBox elasticRegionCheckBox;
     private JCheckBox plasticRegionCheckBox;
 
@@ -89,23 +89,79 @@ public class GraphPanel extends JPanel {
     }
     
     /**
-     * 모든 컴포넌트 초기화
+     * 모든 컴포넌트 초기화 및 레이아웃 구성 (2-Row 구조)
      */
     private void initializeComponents() {
-        // 1. 하단 제어 패널 구성 (BorderLayout)
-        graphControlPanel = new JPanel(new BorderLayout());
+        // 1. 하단 제어 패널 구성 (GridLayout 2 rows)
+        graphControlPanel = new JPanel(new GridLayout(2, 1, 0, 5)); // 수직 간격 5px
         
-        // 1-1. 옵션 패널 (좌측, FlowLayout LEFT)
-        optionsPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
-        createOptionCheckBoxes(); // 체크박스 생성 및 추가
+        // 컴포넌트 객체 생성 및 이벤트 리스너 등록
+        createUIComponents();
+
+        // [Row 1] 주요 옵션 (UTS, Yield, Marker Reference)
+        JPanel row1 = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 5));
         
-        // 1-2. 버튼 패널 (우측, FlowLayout RIGHT)
-        buttonsPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
-        createControlButtons(); // 버튼 생성 및 buttonsPanel에 추가
+        // UTS 표시
+        row1.add(utsCheckBox);
         
-        // 1-3. 제어 패널에 배치
-        graphControlPanel.add(optionsPanel, BorderLayout.WEST);
-        graphControlPanel.add(buttonsPanel, BorderLayout.EAST);
+        // 항복점 그룹
+        JPanel yieldPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 0));
+        yieldPanel.add(yieldCheckBox);
+        yieldPanel.add(yieldModeComboBox);
+
+        // 도움말 아이콘 (?) 추가
+        JLabel helpLabel = new JLabel("(?)");
+        helpLabel.setFont(new Font("SansSerif", Font.BOLD, 11));
+        helpLabel.setForeground(Color.GRAY);
+        helpLabel.setToolTipText("<html>실험 조건(인장 속도 등)이나 재료 특성에 따라<br>자동 감지가 부정확할 수 있습니다.<br>필요 시 수동으로 모드를 변경하세요.</html>");
+        
+        // 마우스 호버 효과 (UX)
+        helpLabel.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseEntered(MouseEvent e) {
+                helpLabel.setForeground(new Color(33, 150, 243)); // Blue
+                helpLabel.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+            }
+            
+            @Override
+            public void mouseExited(MouseEvent e) {
+                helpLabel.setForeground(Color.GRAY);
+                helpLabel.setCursor(Cursor.getPredefinedCursor(Cursor.DEFAULT_CURSOR));
+            }
+        });
+        yieldPanel.add(helpLabel);
+
+        row1.add(yieldPanel);
+        
+        // 마커 기준 그룹
+        JPanel refPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 0));
+        JLabel refLabel = new JLabel("마커 기준:");
+        refLabel.setFont(new Font("SansSerif", Font.PLAIN, 11));
+        refPanel.add(refLabel);
+        refPanel.add(markerRefComboBox);
+        row1.add(refPanel);
+
+        // [Row 2] 영역 표시 및 제어 버튼
+        JPanel row2 = new JPanel(new BorderLayout());
+        
+        // Row 2 - Left: 영역 표시
+        JPanel row2Left = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 5));
+        row2Left.add(elasticRegionCheckBox);
+        row2Left.add(plasticRegionCheckBox);
+        
+        // Row 2 - Right: 제어 버튼
+        JPanel row2Right = new JPanel(new FlowLayout(FlowLayout.RIGHT, 5, 5));
+        row2Right.add(zoomInButton);
+        row2Right.add(zoomOutButton);
+        row2Right.add(resetZoomButton);
+        row2Right.add(Box.createHorizontalStrut(10));
+        row2Right.add(exportChartButton);
+
+        row2.add(row2Left, BorderLayout.WEST);
+        row2.add(row2Right, BorderLayout.EAST);
+
+        graphControlPanel.add(row1);
+        graphControlPanel.add(row2);
 
         // 2. 플레이스홀더 패널 생성 (초기 화면용)
         placeholderPanel = new JPanel(new BorderLayout());
@@ -118,34 +174,48 @@ public class GraphPanel extends JPanel {
     }
 
     /**
-     * 옵션 체크박스 생성 및 패널 추가 헬퍼 메서드
+     * UI 컴포넌트(체크박스, 버튼 등) 객체 생성 및 이벤트 설정
      */
-    private void createOptionCheckBoxes() {
+    private void createUIComponents() {
+        // --- 옵션 체크박스 ---
+        
         // UTS 표시 체크박스
         utsCheckBox = new JCheckBox("UTS 표시");
         utsCheckBox.addActionListener(e -> setShowUTS(utsCheckBox.isSelected()));
-        optionsPanel.add(utsCheckBox);
 
         // 항복점 표시 체크박스
         yieldCheckBox = new JCheckBox("항복점 표시");
-        yieldCheckBox.addActionListener(e -> setShowYieldPoint(yieldCheckBox.isSelected()));
-        optionsPanel.add(yieldCheckBox);
+        yieldCheckBox.addActionListener(e -> {
+            setShowYieldPoint(yieldCheckBox.isSelected());
+            yieldModeComboBox.setEnabled(yieldCheckBox.isSelected());
+        });
+        
+        // 항복점 모드 콤보박스
+        String[] yieldModes = { "Auto (자동)", "0.2% Offset", "상/하항복점" };
+        yieldModeComboBox = new JComboBox<>(yieldModes);
+        yieldModeComboBox.setFont(new Font("SansSerif", Font.PLAIN, 11));
+        yieldModeComboBox.setPreferredSize(new Dimension(110, 22));
+        yieldModeComboBox.setEnabled(false);
+        yieldModeComboBox.addActionListener(e -> updateGraphVisualizations());
+
+        // 마커 기준(Reference) 선택 콤보박스
+        String[] refModes = { "Engineering (공칭)", "True (진)" };
+        markerRefComboBox = new JComboBox<>(refModes);
+        markerRefComboBox.setFont(new Font("SansSerif", Font.PLAIN, 11));
+        markerRefComboBox.setPreferredSize(new Dimension(130, 22));
+        markerRefComboBox.setSelectedIndex(0); // 기본값: Engineering
+        markerRefComboBox.addActionListener(e -> updateGraphVisualizations());
 
         // 탄성 영역 표시 체크박스
         elasticRegionCheckBox = new JCheckBox("탄성 영역");
         elasticRegionCheckBox.addActionListener(e -> setShowElasticRegion(elasticRegionCheckBox.isSelected()));
-        optionsPanel.add(elasticRegionCheckBox);
 
         // 소성 영역 표시 체크박스
         plasticRegionCheckBox = new JCheckBox("소성 영역");
         plasticRegionCheckBox.addActionListener(e -> setShowPlasticRegion(plasticRegionCheckBox.isSelected()));
-        optionsPanel.add(plasticRegionCheckBox);
-    }
+        
+        // --- 제어 버튼 ---
 
-    /**
-     * 제어 버튼 생성 및 패널 추가 헬퍼 메서드
-     */
-    private void createControlButtons() {
         // Zoom In 버튼
         zoomInButton = new JButton("Zoom In");
         zoomInButton.addActionListener(e -> {
@@ -157,7 +227,6 @@ public class GraphPanel extends JPanel {
             }
             if (zoomInListener != null) zoomInListener.actionPerformed(e);
         });
-        buttonsPanel.add(zoomInButton);
         
         // Zoom Out 버튼
         zoomOutButton = new JButton("Zoom Out");
@@ -170,7 +239,6 @@ public class GraphPanel extends JPanel {
             }
             if (zoomOutListener != null) zoomOutListener.actionPerformed(e);
         });
-        buttonsPanel.add(zoomOutButton);
         
         // Reset Zoom 버튼
         resetZoomButton = new JButton("Reset Zoom");
@@ -180,14 +248,12 @@ public class GraphPanel extends JPanel {
             }
             if (resetZoomListener != null) resetZoomListener.actionPerformed(e);
         });
-        buttonsPanel.add(resetZoomButton);
         
         // Export Chart 버튼
         exportChartButton = new JButton("Export Chart");
         exportChartButton.addActionListener(e -> {
             if (exportChartListener != null) exportChartListener.actionPerformed(e);
         });
-        buttonsPanel.add(exportChartButton);
     }
     
     /**
@@ -433,8 +499,36 @@ public class GraphPanel extends JPanel {
         // 분석 결과가 아직 없으면 시각화 건너뜀
         if (analysisResult == null) return;
 
+        boolean useEngineering = markerRefComboBox.getSelectedIndex() == 0; // 0: Eng, 1: True
+
         StressStrainPoint utsPoint = analysisResult.getUtsPoint();
-        StressStrainPoint yieldPoint = analysisResult.getYieldPoint();
+        
+        // 항복점 모드에 따른 포인트 결정
+        StressStrainPoint displayYieldPoint = null;
+        StressStrainPoint displayUpperYield = null;
+        StressStrainPoint displayLowerYield = null;
+        
+        int selectedMode = yieldModeComboBox.getSelectedIndex(); // 0: Auto, 1: Offset, 2: Upper/Lower
+        
+        if (selectedMode == 0) { // Auto
+            if (analysisResult.getYieldType() == AnalysisResult.YieldType.DISCONTINUOUS) {
+                displayUpperYield = analysisResult.getUpperYieldPoint();
+                displayLowerYield = analysisResult.getLowerYieldPoint();
+            } else {
+                displayYieldPoint = analysisResult.getYieldPoint(); // Offset Point
+            }
+        } else if (selectedMode == 1) { // Force 0.2% Offset
+            // "Dual Calculation" 덕분에 YieldType과 상관없이 항상 Offset 값을 가져올 수 있음
+            displayYieldPoint = analysisResult.getOffsetYieldPoint();
+            
+            // 만약 (매우 드물게) 오프셋 포인트가 null이라면, Auto 로직의 결과가 Offset일 경우 그 값을 백업으로 사용
+            if (displayYieldPoint == null && analysisResult.getYieldType() == AnalysisResult.YieldType.OFFSET_02) {
+                displayYieldPoint = analysisResult.getYieldPoint();
+            }
+        } else if (selectedMode == 2) { // Force Upper/Lower
+            displayUpperYield = analysisResult.getUpperYieldPoint();
+            displayLowerYield = analysisResult.getLowerYieldPoint();
+        }
 
         // 2. 특수 포인트(UTS, Yield)를 위한 별도의 데이터셋 및 렌더러 준비
         XYSeriesCollection specialPointsDataset = new XYSeriesCollection();
@@ -446,9 +540,12 @@ public class GraphPanel extends JPanel {
 
         // 3-1. UTS 포인트 처리
         if (showUTS && utsPoint != null) {
-            // 데이터셋에 UTS 추가 (Engineering Stress 기준)
             XYSeries utsSeries = new XYSeries("UTS Point");
-            utsSeries.add(utsPoint.getEngineeringStrain(), utsPoint.getEngineeringStress());
+            // 사용자가 선택한 기준(Eng/True)에 따라 좌표값 결정
+            double strain = useEngineering ? utsPoint.getEngineeringStrain() : utsPoint.getTrueStrain();
+            double stress = useEngineering ? utsPoint.getEngineeringStress() : utsPoint.getTrueStress();
+            
+            utsSeries.add(strain, stress);
             specialPointsDataset.addSeries(utsSeries);
             
             // 렌더러 스타일 설정 (빨간색, 8x8 픽셀 원)
@@ -457,9 +554,9 @@ public class GraphPanel extends JPanel {
             
             // 텍스트 라벨 (어노테이션) 추가
             XYPointerAnnotation utsAnnotation = new XYPointerAnnotation(
-                String.format("UTS (%.1f MPa)", utsPoint.getEngineeringStress()),
-                utsPoint.getEngineeringStrain(),
-                utsPoint.getEngineeringStress(),
+                String.format("UTS (%.1f MPa)", stress),
+                strain,
+                stress,
                 -Math.PI / 4.0 // 45도
             );
             utsAnnotation.setTipRadius(10.0);
@@ -472,23 +569,24 @@ public class GraphPanel extends JPanel {
             seriesIndex++;
         }
 
-        // 3-2. 항복점 포인트 처리
-        if (showYieldPoint && yieldPoint != null) {
-            // 데이터셋에 항복점 추가
+        // 3-2. 항복점 포인트 처리 (단일 포인트 - 주로 Offset)
+        if (showYieldPoint && displayYieldPoint != null) {
             XYSeries yieldSeries = new XYSeries("Yield Point");
-            yieldSeries.add(yieldPoint.getTrueStrain(), yieldPoint.getTrueStress());
+            
+            double strain = useEngineering ? displayYieldPoint.getEngineeringStrain() : displayYieldPoint.getTrueStrain();
+            double stress = useEngineering ? displayYieldPoint.getEngineeringStress() : displayYieldPoint.getTrueStress();
+            
+            yieldSeries.add(strain, stress);
             specialPointsDataset.addSeries(yieldSeries);
             
-            // 렌더러 스타일 설정 (녹색, 8x8 픽셀 원)
-            pointRenderer.setSeriesPaint(seriesIndex, new Color(0, 150, 0));
+            pointRenderer.setSeriesPaint(seriesIndex, new Color(0, 150, 0)); // 녹색
             pointRenderer.setSeriesShape(seriesIndex, new Ellipse2D.Double(-4.0, -4.0, 8.0, 8.0));
             
-            // 텍스트 라벨 (어노테이션) 추가
             XYPointerAnnotation yieldAnnotation = new XYPointerAnnotation(
-                String.format("Yield (%.1f MPa)", yieldPoint.getTrueStress()),
-                yieldPoint.getTrueStrain(),
-                yieldPoint.getTrueStress(),
-                Math.PI / 2.0 // 90도
+                String.format("Yield (%.1f MPa)", stress),
+                strain,
+                stress,
+                Math.PI / 2.0 
             );
             yieldAnnotation.setTipRadius(10.0);
             yieldAnnotation.setBaseRadius(35.0);
@@ -498,6 +596,65 @@ public class GraphPanel extends JPanel {
             plot.addAnnotation(yieldAnnotation);
             
             seriesIndex++;
+        }
+        
+        // 3-3. 상/하항복점 포인트 처리 (두 개 포인트)
+        if (showYieldPoint && (displayUpperYield != null || displayLowerYield != null)) {
+            // 상항복점
+            if (displayUpperYield != null) {
+                XYSeries upperSeries = new XYSeries("Upper Yield");
+                
+                double strain = useEngineering ? displayUpperYield.getEngineeringStrain() : displayUpperYield.getTrueStrain();
+                double stress = useEngineering ? displayUpperYield.getEngineeringStress() : displayUpperYield.getTrueStress();
+                
+                upperSeries.add(strain, stress);
+                specialPointsDataset.addSeries(upperSeries);
+                
+                pointRenderer.setSeriesPaint(seriesIndex, new Color(255, 140, 0)); // 주황색
+                pointRenderer.setSeriesShape(seriesIndex, new Ellipse2D.Double(-4.0, -4.0, 8.0, 8.0));
+                
+                XYPointerAnnotation upperAnnotation = new XYPointerAnnotation(
+                    String.format("UYP (%.1f)", stress),
+                    strain,
+                    stress,
+                    Math.PI / 4.0 
+                );
+                upperAnnotation.setTipRadius(10.0);
+                upperAnnotation.setBaseRadius(30.0);
+                upperAnnotation.setFont(new Font("SansSerif", Font.BOLD, 11));
+                upperAnnotation.setPaint(new Color(255, 140, 0));
+                upperAnnotation.setArrowPaint(new Color(255, 140, 0));
+                plot.addAnnotation(upperAnnotation);
+                seriesIndex++;
+            }
+            
+            // 하항복점
+            if (displayLowerYield != null) {
+                XYSeries lowerSeries = new XYSeries("Lower Yield");
+                
+                double strain = useEngineering ? displayLowerYield.getEngineeringStrain() : displayLowerYield.getTrueStrain();
+                double stress = useEngineering ? displayLowerYield.getEngineeringStress() : displayLowerYield.getTrueStress();
+                
+                lowerSeries.add(strain, stress);
+                specialPointsDataset.addSeries(lowerSeries);
+                
+                pointRenderer.setSeriesPaint(seriesIndex, new Color(255, 140, 0)); // 주황색
+                pointRenderer.setSeriesShape(seriesIndex, new Ellipse2D.Double(-4.0, -4.0, 8.0, 8.0));
+                
+                XYPointerAnnotation lowerAnnotation = new XYPointerAnnotation(
+                    String.format("LYP (%.1f)", stress),
+                    strain,
+                    stress,
+                    -Math.PI / 2.0 
+                );
+                lowerAnnotation.setTipRadius(10.0);
+                lowerAnnotation.setBaseRadius(30.0);
+                lowerAnnotation.setFont(new Font("SansSerif", Font.BOLD, 11));
+                lowerAnnotation.setPaint(new Color(255, 140, 0));
+                lowerAnnotation.setArrowPaint(new Color(255, 140, 0));
+                plot.addAnnotation(lowerAnnotation);
+                seriesIndex++;
+            }
         }
 
         // 4. Plot에 보조 데이터셋과 렌더러 적용 (Index 1번 사용)
@@ -509,11 +666,28 @@ public class GraphPanel extends JPanel {
         }
 
         // 5. 영역 표시 (IntervalMarker 유지 - Domain 축)
-        if (yieldPoint != null) {
+        // 영역 표시는 현재 시각화된 항복점을 기준으로 함 (시각화 동기화)
+        StressStrainPoint refYield = null;
+        
+        if (displayYieldPoint != null) {
+            refYield = displayYieldPoint;
+        } else if (displayUpperYield != null) {
+            refYield = displayUpperYield;
+        } else {
+            // 표시된 점이 없으면 기본 계산 결과 사용 (Fallback)
+            refYield = analysisResult.getYieldPoint();
+        }
+        
+        if (refYield != null) {
+            double yieldStrain = useEngineering ? refYield.getEngineeringStrain() : refYield.getTrueStrain();
+            double maxStrain = useEngineering ? 
+                currentData.get(currentData.size() - 1).getEngineeringStrain() : 
+                currentData.get(currentData.size() - 1).getTrueStrain();
+
             if (showElasticRegion) {
                 IntervalMarker elasticMarker = new IntervalMarker(
                     0.0, 
-                    yieldPoint.getTrueStrain()
+                    yieldStrain
                 );
                 elasticMarker.setPaint(new Color(0, 0, 255, 30)); // 파란색, 투명도 30
                 elasticMarker.setLabel("Elastic Region");
@@ -524,9 +698,8 @@ public class GraphPanel extends JPanel {
             }
 
             if (showPlasticRegion) {
-                double maxStrain = currentData.get(currentData.size() - 1).getTrueStrain();
                 IntervalMarker plasticMarker = new IntervalMarker(
-                    yieldPoint.getTrueStrain(),
+                    yieldStrain,
                     maxStrain
                 );
                 plasticMarker.setPaint(new Color(255, 0, 0, 30)); // 붉은색, 투명도 30

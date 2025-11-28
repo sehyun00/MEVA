@@ -11,8 +11,18 @@ import meva.models.StressStrainPoint;
 public class AnalysisResult {
     // 주요 데이터 포인트 (그래프 마킹용)
     private StressStrainPoint utsPoint;        // 최대 인장 강도 지점 (Engineering 기준)
-    private StressStrainPoint yieldPoint;      // 항복점 (0.2% Offset)
+    private StressStrainPoint yieldPoint;      // 대표 항복점 (0.2% Offset 또는 상항복점)
+    private StressStrainPoint upperYieldPoint; // 상항복점 (불연속 항복 시)
+    private StressStrainPoint lowerYieldPoint; // 하항복점 (불연속 항복 시)
+    private StressStrainPoint offsetYieldPoint; // 0.2% 오프셋 항복점 (별도 저장용)
     private StressStrainPoint fracturePoint;   // 파단점
+
+    // 항복 거동 타입
+    public enum YieldType {
+        OFFSET_02,          // 0.2% 오프셋 (연속 항복)
+        DISCONTINUOUS       // 불연속 항복 (상/하항복점 존재)
+    }
+    private YieldType yieldType = YieldType.OFFSET_02; // 기본값
 
     // 계산된 물성치 (ResultPanel 표시용)
     private double youngsModulus;      // 영률 (GPa)
@@ -40,6 +50,18 @@ public class AnalysisResult {
 
     public StressStrainPoint getFracturePoint() { return fracturePoint; }
     public void setFracturePoint(StressStrainPoint fracturePoint) { this.fracturePoint = fracturePoint; }
+
+    public StressStrainPoint getUpperYieldPoint() { return upperYieldPoint; }
+    public void setUpperYieldPoint(StressStrainPoint upperYieldPoint) { this.upperYieldPoint = upperYieldPoint; }
+
+    public StressStrainPoint getLowerYieldPoint() { return lowerYieldPoint; }
+    public void setLowerYieldPoint(StressStrainPoint lowerYieldPoint) { this.lowerYieldPoint = lowerYieldPoint; }
+
+    public StressStrainPoint getOffsetYieldPoint() { return offsetYieldPoint; }
+    public void setOffsetYieldPoint(StressStrainPoint offsetYieldPoint) { this.offsetYieldPoint = offsetYieldPoint; }
+
+    public YieldType getYieldType() { return yieldType; }
+    public void setYieldType(YieldType yieldType) { this.yieldType = yieldType; }
 
     public double getYoungsModulus() { return youngsModulus; }
     public void setYoungsModulus(double youngsModulus) { this.youngsModulus = youngsModulus; }
