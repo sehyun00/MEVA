@@ -14,6 +14,7 @@ public class DatabaseManager {
 
     /**
      * DB 연결 객체 반환
+     * 
      * @return Connection 객체
      * @throws SQLException 연결 실패 시
      */
@@ -27,8 +28,8 @@ public class DatabaseManager {
      */
     public static void initializeDatabase() {
         try (Connection conn = getConnection();
-             Statement stmt = conn.createStatement()) {
-            
+                Statement stmt = conn.createStatement()) {
+
             // Materials 테이블 생성
             String sqlMaterials = "CREATE TABLE IF NOT EXISTS materials (" +
                     "id INTEGER PRIMARY KEY AUTOINCREMENT, " +
@@ -43,43 +44,49 @@ public class DatabaseManager {
                     ");";
             stmt.execute(sqlMaterials);
 
-            // TensileTests 테이블 생성
-            String sqlTests = "CREATE TABLE IF NOT EXISTS tensile_tests (" +
+            // Experiments 테이블 생성
+            String sqlExperiments = "CREATE TABLE IF NOT EXISTS experiments (" +
                     "id INTEGER PRIMARY KEY AUTOINCREMENT, " +
                     "material_id INTEGER NOT NULL, " +
-                    "test_date DATETIME DEFAULT CURRENT_TIMESTAMP, " +
-                    "specimen_area REAL, " +
-                    "specimen_length REAL, " +
-                    "temperature REAL, " +
+                    "specimen_diameter REAL, " +
+                    "gauge_length REAL, " +
+                    "cross_section_area REAL, " +
+                    "test_date TEXT, " +
+                    "test_temperature REAL, " +
+                    "test_speed REAL, " +
+                    "data_file_path TEXT, " +
                     "remarks TEXT, " +
                     "FOREIGN KEY(material_id) REFERENCES materials(id) ON DELETE CASCADE" +
                     ");";
-            stmt.execute(sqlTests);
+            stmt.execute(sqlExperiments);
 
             // TensileData 테이블 생성 (시계열 데이터)
             String sqlData = "CREATE TABLE IF NOT EXISTS tensile_data (" +
                     "id INTEGER PRIMARY KEY AUTOINCREMENT, " +
-                    "test_id INTEGER NOT NULL, " +
+                    "experiment_id INTEGER NOT NULL, " +
                     "load_value REAL, " +
                     "displacement REAL, " +
                     "timestamp REAL, " +
-                    "FOREIGN KEY(test_id) REFERENCES tensile_tests(id) ON DELETE CASCADE" +
+                    "FOREIGN KEY(experiment_id) REFERENCES experiments(id) ON DELETE CASCADE" +
                     ");";
             stmt.execute(sqlData);
 
-            // SimulationResults 테이블 생성
-            String sqlResults = "CREATE TABLE IF NOT EXISTS simulation_results (" +
-                    "id INTEGER PRIMARY KEY AUTOINCREMENT, " +
-                    "test_id INTEGER NOT NULL, " +
-                    "calculated_youngs_modulus REAL, " +
-                    "calculated_yield_strength REAL, " +
-                    "calculated_tensile_strength REAL, " +
-                    "calculated_elongation REAL, " +
-                    "comparison_score REAL, " +
+            // CalculationResults 테이블 생성 (기존 SimulationResults 대체)
+            String sqlResults = "CREATE TABLE IF NOT EXISTS calculation_results (" +
+                    "experiment_id INTEGER PRIMARY KEY, " +
+                    "max_stress REAL, " +
+                    "strain_at_max_stress REAL, " +
+                    "uts REAL, " +
                     "created_at DATETIME DEFAULT CURRENT_TIMESTAMP, " +
-                    "FOREIGN KEY(test_id) REFERENCES tensile_tests(id) ON DELETE CASCADE" +
+                    "FOREIGN KEY(experiment_id) REFERENCES experiments(id) ON DELETE CASCADE" +
                     ");";
             stmt.execute(sqlResults);
+
+            // 기본 재료 데이터 삽입 (FK 제약조건 만족을 위해)
+            String sqlInitMaterial = "INSERT OR IGNORE INTO materials (id, name, category, youngs_modulus, yield_strength, tensile_strength) "
+                    +
+                    "VALUES (1, 'Default Steel', 'Steel', 200000, 250, 400);";
+            stmt.execute(sqlInitMaterial);
 
             System.out.println("[DatabaseManager] 데이터베이스 연결 및 테이블 초기화 완료");
 

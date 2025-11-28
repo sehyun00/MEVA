@@ -9,3 +9,6 @@ build/
 .project
 .settings/
 .vscode/
+
+# 데이터베이스 파일
+*.db
