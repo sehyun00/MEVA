@@ -541,7 +541,7 @@ public class MainFrame extends JFrame {
         try {
             // Experiment 객체 생성
             Experiment exp = new Experiment();
-            
+
             // 재료 선택 컴포넌트에서 재료명과 ID 가져오기
             String materialName = inputPanel.getSelectedMaterialName();
             int materialId = inputPanel.getSelectedMaterialId();
@@ -561,6 +561,18 @@ public class MainFrame extends JFrame {
             exp.setCrossSectionArea(inputPanel.getInitialCrossSection());
             exp.setTestDate(LocalDate.now().toString());
             exp.setDataFilePath(filePath);
+            
+            try {
+                if (filePath != null && !filePath.isEmpty()) {
+                    String fileContent = java.nio.file.Files.readString(java.nio.file.Paths.get(filePath));
+                    exp.setDataFileContent(fileContent);
+                    System.out.println("파일 내용 로드 완료: " + fileContent.length() + " bytes");
+                }
+            } catch (Exception ex) {
+                System.err.println("파일 내용 읽기 실패: " + ex.getMessage());
+                // 여기서 실패해도 경로는 저장되므로, 치명적 에러로 보지는 않음
+            }
+
             exp.setRemarks("자동 저장된 실험");
 
             // DAO를 통해 저장
