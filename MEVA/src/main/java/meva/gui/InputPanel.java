@@ -349,9 +349,20 @@ public class InputPanel extends JPanel {
             }
 
             JOptionPane.showMessageDialog(this,
-                    "실험 ID " + experimentId + "를 불러왔습니다.\nCalculate 버튼을 눌러 그래프를 확인하세요.",
+                    "실험 ID " + experimentId + "를 불러왔습니다.\n그래프를 생성 중입니다...",
                     "불러오기 완료",
                     JOptionPane.INFORMATION_MESSAGE);
+
+            // SwingUtilities.invokeLater로 UI 업데이트 후 실행
+            javax.swing.SwingUtilities.invokeLater(() -> {
+                if (calculateListener != null) {
+                    calculateListener.actionPerformed(
+                            new java.awt.event.ActionEvent(calculateButton,
+                                    java.awt.event.ActionEvent.ACTION_PERFORMED,
+                                    "auto-calculate"));
+                }
+            });
+
         } else {
             JOptionPane.showMessageDialog(this,
                     "실험 데이터를 찾을 수 없습니다.",
