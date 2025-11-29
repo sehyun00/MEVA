@@ -24,31 +24,31 @@ import java.util.ArrayList;
  */
 public class MainFrame extends JFrame {
     // UI 컴포넌트
-    private MenuBar menuBar;              // 상단 메뉴바 (File, Edit, View 등)
-    private JToolBar toolBar;             // 자주 사용하는 기능을 아이콘으로 제공하는 툴바
-    private JPanel mainPanel;             // 전체 레이아웃을 담는 메인 컨테이너
-    private InputPanel inputPanel;        // 좌측: 사용자 입력 패널
+    private MenuBar menuBar; // 상단 메뉴바 (File, Edit, View 등)
+    private JToolBar toolBar; // 자주 사용하는 기능을 아이콘으로 제공하는 툴바
+    private JPanel mainPanel; // 전체 레이아웃을 담는 메인 컨테이너
+    private InputPanel inputPanel; // 좌측: 사용자 입력 패널
     private GraphPanel visualizationPanel; // 중앙: 그래프 시각화 패널
-    private ResultPanel resultsPanel;     // 우측: 계산 결과 패널
-    private JPanel statusBar;             // 하단: 상태 메시지 및 진행률 표시줄
-    
+    private ResultPanel resultsPanel; // 우측: 계산 결과 패널
+    private JPanel statusBar; // 하단: 상태 메시지 및 진행률 표시줄
+
     // 계산 결과 값 저장 필드
-    private double youngsModulus;         // 영률 (E)
-    private double yieldStrength;         // 항복 강도 (σy)
-    private double elongation;            // 연신율
-    private double reductionOfArea;       // 단면 감소율
-    private double toughness;             // 인성
-    private double resilience;            // 탄성 에너지
-    private double elasticLimit;          // 탄성 한계
-    private double proportionalLimit;     // 비례 한계
-    private double neckingStartStrain;    // 네킹 시작 변형률
-    private double fractureStress;        // 파괴 응력
-    private double fractureStrain;        // 파괴 변형률
+    private double youngsModulus; // 영률 (E)
+    private double yieldStrength; // 항복 강도 (σy)
+    private double elongation; // 연신율
+    private double reductionOfArea; // 단면 감소율
+    private double toughness; // 인성
+    private double resilience; // 탄성 에너지
+    private double elasticLimit; // 탄성 한계
+    private double proportionalLimit; // 비례 한계
+    private double neckingStartStrain; // 네킹 시작 변형률
+    private double fractureStress; // 파괴 응력
+    private double fractureStrain; // 파괴 변형률
 
     // 상태바 컴포넌트
-    private JLabel statusLabel;   // 현재 작업 상태 텍스트 표시
+    private JLabel statusLabel; // 현재 작업 상태 텍스트 표시
     private JProgressBar progressBar; // 긴 작업(계산 등) 진행률 표시
-    private JLabel timeLabel;     // 현재 시간 표시
+    private JLabel timeLabel; // 현재 시간 표시
 
     // 현재 실험 ID (저장된 실험 추적용)
     private int currentExperimentId = -1;
@@ -247,7 +247,7 @@ public class MainFrame extends JFrame {
         // 의도: 기존 BorderLayout 고정 배치 대신, 사용자가 각 패널(입력, 그래프, 결과)의
         // 너비를 작업 환경에 맞춰 유동적으로 조절할 수 있도록 JSplitPane 구조 도입
         mainPanel.add(createSplitPaneLayout(), BorderLayout.CENTER);
-        
+
         add(mainPanel, BorderLayout.CENTER);
 
         // StatusBar 추가 (SOUTH)
@@ -292,12 +292,12 @@ public class MainFrame extends JFrame {
         setTitle("MEVA - Materials Engineering Visualization and Analysis");
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setSize(1600, 900);
-        
+
         // 최소 크기 설정 (각 패널의 최소 너비 합계 고려)
         // Input(280) + Graph(800) + Result(300) + Dividers/Borders ≈ 1400
         // 의도: 사용자가 설정한 각 패널의 최소 너비를 보장하기 위해 프레임 전체의 최소 크기를 제한함
         setMinimumSize(new Dimension(1400, 768));
-        
+
         setLocationRelativeTo(null);
     }
 
@@ -426,7 +426,7 @@ public class MainFrame extends JFrame {
 
                     // 3. 데이터 클리닝 (음수 제거 + 파단 후 제거)
                     convertedData = calculator.cleanData(convertedData);
-                    convertedData = calculator.applyZeroOffset(convertedData); 
+                    convertedData = calculator.applyZeroOffset(convertedData);
 
                     // 스무딩 전 데이터를 별도 저장 (영률 계산용)
                     List<StressStrainPoint> rawStressStrainData = new ArrayList<>(convertedData);
@@ -541,7 +541,21 @@ public class MainFrame extends JFrame {
         try {
             // Experiment 객체 생성
             Experiment exp = new Experiment();
-            exp.setMaterialId(1); // 기본 재료 ID (TODO: 사용자 선택 기능 추가)
+            
+            // 재료 선택 컴포넌트에서 재료명과 ID 가져오기
+            String materialName = inputPanel.getSelectedMaterialName();
+            int materialId = inputPanel.getSelectedMaterialId();
+
+            // 새 재료인 경우 DB에 먼저 저장
+            if (materialId == -1 && materialName != null) {
+                meva.database.MaterialDAO materialDao = new meva.database.MaterialDAO();
+                materialId = materialDao.insertMaterial(materialName);
+                System.out.println("✅ 새 재료 저장됨: " + materialName + " (ID: " + materialId + ")");
+            }
+
+            exp.setMaterialId(materialId);
+            exp.setMaterialName(materialName);
+            // exp.setMaterialId(1); // 기본 재료 ID (TODO: 사용자 선택 기능 추가)
             exp.setSpecimenDiameter(inputPanel.getInitialDiameter());
             exp.setGaugeLength(inputPanel.getGaugeLength());
             exp.setCrossSectionArea(inputPanel.getInitialCrossSection());

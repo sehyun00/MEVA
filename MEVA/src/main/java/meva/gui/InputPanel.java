@@ -29,10 +29,11 @@ public class InputPanel extends JPanel {
 
     // 하위 패널들
     // private JPanel materialPropertiesPanel; // 봉재 시편에서는 미사용
+    private JPanel materialSelectionPanel; // 재료 선택 패널
     private JPanel specimenDimensionsPanel; // 시편 치수 입력 영역을 담는 패널
-    private JPanel controlButtonsPanel;     // 계산, 초기화 등 제어 버튼을 담는 패널
-    private JPanel fileUploadPanel;         // 데이터 파일 선택 및 경로 표시 패널
-    private JPanel presetManagementPanel;   // 입력값 프리셋 저장/로드 관리 패널
+    private JPanel controlButtonsPanel; // 계산, 초기화 등 제어 버튼을 담는 패널
+    private JPanel fileUploadPanel; // 데이터 파일 선택 및 경로 표시 패널
+    private JPanel presetManagementPanel; // 입력값 프리셋 저장/로드 관리 패널
 
     // 재료 물성 입력 필드들 (봉재 시편에서는 미사용 - 실험 데이터 기반)
     // private JTextField youngModulusField;
@@ -40,24 +41,31 @@ public class InputPanel extends JPanel {
     // private JTextField strengthCoefficientField;
     // private JTextField hardeningExponentField;
 
+    // 재료 선택 컴포넌트
+    private JComboBox<String> materialComboBox;
+    private JTextField customMaterialField;
+    private JPanel customMaterialPanel;
+    private String selectedMaterialName;
+    private int selectedMaterialId;
+
     // 시편 치수 입력 필드들 (봉재용)
-    private JTextField diameterField;    // 시편의 초기 직경 (D₀) 입력
+    private JTextField diameterField; // 시편의 초기 직경 (D₀) 입력
     private JTextField gaugeLengthField; // 시편의 초기 게이지 길이 (L₀) 입력
 
     // 데이터 파일 업로드 컴포넌트
-    private JButton loadFileButton;  // 실험 데이터(.txt) 파일 선택 다이얼로그 열기
-    private JLabel filePathLabel;    // 선택된 파일의 이름 표시
+    private JButton loadFileButton; // 실험 데이터(.txt) 파일 선택 다이얼로그 열기
+    private JLabel filePathLabel; // 선택된 파일의 이름 표시
     private String selectedFilePath; // 선택된 파일의 절대 경로 저장
 
     // 제어 버튼들
-    private JButton calculateButton;  // 입력된 데이터로 시뮬레이션 및 결과 계산 실행
-    private JButton resetButton;      // 모든 입력 필드 및 상태 초기화
+    private JButton calculateButton; // 입력된 데이터로 시뮬레이션 및 결과 계산 실행
+    private JButton resetButton; // 모든 입력 필드 및 상태 초기화
     private JButton clearGraphButton; // 그래프 영역만 초기화
 
     // 프리셋 관리 컴포넌트
     private JComboBox<String> presetComboBox; // 저장된 프리셋 목록 선택
-    private JButton savePresetButton;         // 현재 입력값을 새 프리셋으로 저장
-    private JButton deletePresetButton;       // 선택된 프리셋 삭제
+    private JButton savePresetButton; // 현재 입력값을 새 프리셋으로 저장
+    private JButton deletePresetButton; // 선택된 프리셋 삭제
 
     // 이벤트 리스너들
     private ActionListener calculateListener;
@@ -81,6 +89,9 @@ public class InputPanel extends JPanel {
     private void initializeComponents() {
         // 재료 물성 패널 초기화 (봉재 시편에서는 주석 처리)
         // materialPropertiesPanel = createMaterialPropertiesPanel();
+
+        // 재료 선택 패널 초기화
+        materialSelectionPanel = createMaterialSelectionPanel();
 
         // 시편 치수 패널 초기화
         specimenDimensionsPanel = createSpecimenDimensionsPanel();
@@ -129,6 +140,9 @@ public class InputPanel extends JPanel {
         panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
 
         // 기존 패널들 추가
+        panel.add(materialSelectionPanel);
+        panel.add(Box.createRigidArea(new Dimension(0, 15)));
+
         panel.add(specimenDimensionsPanel);
         panel.add(Box.createRigidArea(new Dimension(0, 20)));
 
@@ -298,6 +312,28 @@ public class InputPanel extends JPanel {
             diameterField.setText(String.valueOf(exp.getSpecimenDiameter()));
             gaugeLengthField.setText(String.valueOf(exp.getGaugeLength()));
 
+            // 재료 선택 컴포넌트에 데이터 채우기
+            if (exp.getMaterialName() != null) {
+                selectedMaterialName = exp.getMaterialName();
+                selectedMaterialId = exp.getMaterialId();
+
+                // 재료 콤보박스에 데이터 채우기
+                boolean found = false;
+                for (int i = 0; i < materialComboBox.getItemCount(); i++) {
+                    if (materialComboBox.getItemAt(i).equals(exp.getMaterialName())) {
+                        materialComboBox.setSelectedIndex(i);
+                        found = true;
+                        break;
+                    }
+                }
+
+                if (!found) {
+                    materialComboBox.setSelectedItem("➕ 추가");
+                    customMaterialField.setText(exp.getMaterialName());
+                }
+            }
+
+            // 데이터 파일 경로 표시
             if (exp.getDataFilePath() != null && !exp.getDataFilePath().isEmpty()) {
                 selectedFilePath = exp.getDataFilePath();
                 filePathLabel.setText("파일: " + new java.io.File(exp.getDataFilePath()).getName());
@@ -367,6 +403,103 @@ public class InputPanel extends JPanel {
         }
 
         System.out.println("[정보] 검색 결과: " + experiments.size() + "개");
+    }
+
+    /**
+     * 재료 선택 패널 생성
+     */
+    private JPanel createMaterialSelectionPanel() {
+        JPanel panel = new JPanel(new GridBagLayout());
+        panel.setBorder(BorderFactory.createTitledBorder("🔬 재료 선택"));
+
+        GridBagConstraints gbc = new GridBagConstraints();
+        gbc.fill = GridBagConstraints.HORIZONTAL;
+        gbc.insets = new Insets(5, 5, 5, 5);
+
+        // 재료 ComboBox
+        gbc.gridx = 0;
+        gbc.gridy = 0;
+        panel.add(new JLabel("재료:"), gbc);
+
+        gbc.gridx = 1;
+        gbc.gridwidth = 2;
+        String[] materials = { "S45C", "Al-Si_alloy", "Ti6Al4V", "➕ 추가" };
+        materialComboBox = new JComboBox<>(materials);
+        materialComboBox.setFont(new Font("Dialog", Font.PLAIN, 12));
+
+        // 선택 이벤트
+        materialComboBox.addActionListener(e -> {
+            String selected = (String) materialComboBox.getSelectedItem();
+            if ("➕ 추가".equals(selected)) {
+                customMaterialPanel.setVisible(true);
+                selectedMaterialName = null;
+                selectedMaterialId = -1;
+            } else {
+                customMaterialPanel.setVisible(false);
+                selectedMaterialName = selected;
+                selectedMaterialId = getMaterialIdByName(selected);
+            }
+            panel.revalidate();
+            panel.repaint();
+        });
+
+        panel.add(materialComboBox, gbc);
+
+        // 사용자 정의 입력 패널
+        gbc.gridx = 0;
+        gbc.gridy = 1;
+        gbc.gridwidth = 1;
+        customMaterialPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 0));
+        customMaterialPanel.setVisible(false);
+
+        customMaterialPanel.add(new JLabel("재료명:"));
+        customMaterialField = new JTextField(15);
+        customMaterialField.setFont(new Font("Monospaced", Font.PLAIN, 12));
+        customMaterialPanel.add(customMaterialField);
+
+        JButton confirmButton = new JButton("✓ 확인");
+        confirmButton.setPreferredSize(new Dimension(60, 25));
+        confirmButton.addActionListener(e -> {
+            String customName = customMaterialField.getText().trim();
+            if (!customName.isEmpty()) {
+                selectedMaterialName = customName;
+                selectedMaterialId = -1;
+
+                JOptionPane.showMessageDialog(this,
+                        "재료 '" + customName + "'가 설정되었습니다.",
+                        "재료 설정",
+                        JOptionPane.INFORMATION_MESSAGE);
+            } else {
+                JOptionPane.showMessageDialog(this,
+                        "재료명을 입력해주세요.",
+                        "입력 필요",
+                        JOptionPane.WARNING_MESSAGE);
+            }
+        });
+        customMaterialPanel.add(confirmButton);
+
+        gbc.gridwidth = 3;
+        panel.add(customMaterialPanel, gbc);
+
+        // 초기값 설정
+        selectedMaterialName = "S45C";
+        selectedMaterialId = getMaterialIdByName("S45C");
+
+        return panel;
+    }
+
+    /**
+     * 재료명으로 DB에서 재료 ID 조회
+     */
+    private int getMaterialIdByName(String materialName) {
+        try {
+            meva.database.MaterialDAO dao = new meva.database.MaterialDAO();
+            Integer id = dao.getMaterialIdByName(materialName);
+            return id != null ? id : -1;
+        } catch (Exception e) {
+            System.err.println("재료 ID 조회 실패: " + e.getMessage());
+            return -1;
+        }
     }
 
     /**
@@ -533,6 +666,22 @@ public class InputPanel extends JPanel {
     }
 
     // ========== 입력값 가져오기 메서드들 ==========
+
+    /**
+     * 선택된 재료명 가져오기
+     */
+    public String getSelectedMaterialName() {
+        return selectedMaterialName;
+    }
+
+    /**
+     * 선택된 재료 ID 가져오기
+     * 
+     * @return 재료 ID (-1: 새 재료, 0 이상: 기존 재료)
+     */
+    public int getSelectedMaterialId() {
+        return selectedMaterialId;
+    }
 
     /**
      * 초기 직경 (D₀) 가져오기
