@@ -44,28 +44,25 @@ public class MaterialProperties {
         System.out.println("  ✓ 적응형 스무딩 적용 (Window Half-Size: " + windowHalfSize + ")");
 
         for (int i = 0; i < points.size(); i++) {
-            double sumStress = 0;
-            // Strain은 X축 변수이므로 스무딩하지 않고 원본 위치를 유지하는 것이 일반적이지만,
-            // 여기서는 노이즈 캔슬링을 위해 Stress만 평균값으로 대체
+            double sumTrueStress = 0;
+            double sumEngStress = 0;
             
             int start = Math.max(0, i - windowHalfSize);
             int end = Math.min(points.size() - 1, i + windowHalfSize);
             int count = 0;
             
             for (int j = start; j <= end; j++) {
-                sumStress += points.get(j).getTrueStress();
+                sumTrueStress += points.get(j).getTrueStress();
+                sumEngStress += points.get(j).getEngineeringStress();
                 count++;
             }
             
             StressStrainPoint p = points.get(i);
-            // 새로운 Stress 값을 가진 객체 생성 (나머지 속성은 원본 유지)
             
-            // StressStrainPoint는 EngStress, EngStrain, TrueStress, TrueStrain만 가지고 있음.
-            // TrueStress를 스무딩했으므로, EngStress도 그에 비례하여 역산해야 함.
-            // TrueStress = EngStress * (1 + EngStrain) -> EngStress = TrueStress / (1 + EngStrain)
-            
-            double newTrueStress = sumStress / count;
-            double newEngStress = newTrueStress / (1.0 + p.getEngineeringStrain());
+            // 공칭 응력과 진응력을 각각 독립적으로 스무딩
+            // (원본 데이터의 경향성을 유지하기 위함)
+            double newTrueStress = sumTrueStress / count;
+            double newEngStress = sumEngStress / count;
             
             StressStrainPoint newPoint = new StressStrainPoint(
                 newEngStress,
@@ -98,18 +95,28 @@ public class MaterialProperties {
         List<StressStrainPoint> smoothedPoints = applySmoothing(points);
 
         // 1. 영률(Young's Modulus) 정밀 계산 (R² 최적화 방식)
-        // 영률 계산은 미세한 초기 구간이므로 원본 데이터를 쓰는 것이 더 정확할 수 있으나,
-        // 노이즈가 심하면 스무딩된 것이 유리함. R² 로직이 강력하므로 스무딩된 데이터 사용.
-        double youngsModulus = calculateYoungsModulus(smoothedPoints);
+        // True Stress 기준 (Primary)
+        double[] modulusData = calculateYoungsModulusWithIntercept(smoothedPoints, false);
+        double youngsModulus = modulusData[0];
         result.setYoungsModulus(youngsModulus);
+        result.setElasticLineIntercept(modulusData[1]);
+
+        // Engineering Stress 기준 (For Visualization)
+        double[] modulusDataEng = calculateYoungsModulusWithIntercept(smoothedPoints, true);
+        result.setYoungsModulusEng(modulusDataEng[0]);
+        result.setElasticLineInterceptEng(modulusDataEng[1]);
 
         // [핵심 변경] 분석 로직의 이원화 (Dual Calculation)
         // 사용자가 UI에서 '0.2% Offset' 또는 '상/하항복점'을 선택할 수 있도록 두 가지 모두 계산하여 저장함.
 
-        // A. 0.2% 오프셋 항복점 (알루미늄/티타늄용, 또는 S45C 보조용)
-        // 스무딩된 데이터를 사용하여 노이즈 영향을 최소화함
-        StressStrainPoint offsetPoint = calculateOffsetYieldPoint(smoothedPoints, youngsModulus, 0.002);
-        result.setOffsetYieldPoint(offsetPoint); // 별도 필드에 저장 (UI 전환용)
+        // A. 0.2% 오프셋 항복점
+        // True Stress 기준
+        StressStrainPoint offsetPoint = calculateOffsetYieldPoint(smoothedPoints, youngsModulus, 0.002, false);
+        result.setOffsetYieldPoint(offsetPoint);
+
+        // Engineering Stress 기준 (For Visualization)
+        StressStrainPoint offsetPointEng = calculateOffsetYieldPoint(smoothedPoints, result.getYoungsModulusEng(), 0.002, true);
+        result.setOffsetYieldPointEng(offsetPointEng);
 
         // B. 불연속 항복점 (S45C용) - 원본 데이터 사용 (피크 보존)
         // '데이터 테이블 패턴 매칭' 알고리즘으로 UYP/LYP 탐색
@@ -280,36 +287,42 @@ public class MaterialProperties {
     }
 
     /**
-     * 0.2% 오프셋 항복점 계산 및 반환
+     * 0.2% 오프셋 항복점 계산 및 반환 (Legacy 호환용 - True Stress 기준)
      */
     private StressStrainPoint calculateOffsetYieldPoint(List<StressStrainPoint> points, double youngsModulus, double offset) {
+        return calculateOffsetYieldPoint(points, youngsModulus, offset, false);
+    }
+
+    /**
+     * 0.2% 오프셋 항복점 계산 및 반환 (공칭/진응력 선택 가능, 보간법 적용)
+     */
+    private StressStrainPoint calculateOffsetYieldPoint(List<StressStrainPoint> points, double youngsModulus, double offset, boolean useEngineering) {
         if (points == null || points.isEmpty()) return null;
         
         double E_MPa = youngsModulus * 1000.0;
-        StressStrainPoint closest = null;
-        double minDiff = Double.MAX_VALUE;
         
-        // [안전장치] UTS 포인트 찾기 (교차점이 UTS를 넘어가면 안 됨)
+        // [안전장치] UTS 포인트 찾기
         StressStrainPoint utsPoint = findUTSPoint(points);
-        double utsStrain = (utsPoint != null) ? utsPoint.getTrueStrain() : Double.MAX_VALUE;
+        double utsStrain = (utsPoint != null) ? 
+            (useEngineering ? utsPoint.getEngineeringStrain() : utsPoint.getTrueStrain()) : 
+            Double.MAX_VALUE;
 
-        // 교차점 찾기
+        // 교차점 찾기 (선형 보간)
         for (int i = 1; i < points.size(); i++) {
             StressStrainPoint p1 = points.get(i - 1);
             StressStrainPoint p2 = points.get(i);
 
-            double strain1 = p1.getTrueStrain();
-            double strain2 = p2.getTrueStrain();
+            double strain1 = useEngineering ? p1.getEngineeringStrain() : p1.getTrueStrain();
+            double strain2 = useEngineering ? p2.getEngineeringStrain() : p2.getTrueStrain();
             
             // 너무 초반 데이터는 스킵 (오프셋 이전)
             if (strain1 < offset * 0.5) continue; 
 
             // [중요] UTS 지점을 넘어가면 탐색 중단
-            // 항복점은 물리적으로 반드시 UTS 이전에 있어야 함
             if (strain1 > utsStrain) break;
 
-            double stress1 = p1.getTrueStress();
-            double stress2 = p2.getTrueStress();
+            double stress1 = useEngineering ? p1.getEngineeringStress() : p1.getTrueStress();
+            double stress2 = useEngineering ? p2.getEngineeringStress() : p2.getTrueStress();
 
             // 오프셋 라인 식: y = E * (x - offset)
             double lineY1 = E_MPa * (strain1 - offset);
@@ -319,138 +332,236 @@ public class MaterialProperties {
             double diff1 = stress1 - lineY1;
             double diff2 = stress2 - lineY2;
             
-            // 부호가 반대면 교차함
+            // 부호가 반대면 교차함 -> 보간하여 정확한 교차점 생성
             if (diff1 * diff2 <= 0) {
-                if (Math.abs(diff1) < Math.abs(diff2)) return p1;
-                else return p2;
-            }
-            
-            // 교차점을 못 찾을 경우를 대비해 가장 가까운 점 저장
-            double dist = Math.min(Math.abs(diff1), Math.abs(diff2));
-            if (dist < minDiff) {
-                minDiff = dist;
-                if (Math.abs(diff1) < Math.abs(diff2)) closest = p1;
-                else closest = p2;
+                // x축 기준 보간 비율 (t) 계산: diff1에서 0이 되는 지점까지의 비율
+                // diff(x) = stress(x) - lineY(x)
+                // diff는 선형이라고 가정 (구간이 짧으므로)
+                double t = Math.abs(diff1) / (Math.abs(diff1) + Math.abs(diff2));
+                
+                double intersectStrain = strain1 + t * (strain2 - strain1);
+                double intersectStress = stress1 + t * (stress2 - stress1);
+                
+                // 새로운 포인트 생성 (나머지 값은 0 또는 근사치로 채움 - 시각화용이므로 해당 모드 값만 중요)
+                if (useEngineering) {
+                    return new StressStrainPoint(intersectStress, intersectStrain, 0.0, 0.0);
+                } else {
+                    return new StressStrainPoint(0.0, 0.0, intersectStress, intersectStrain);
+                }
             }
         }
         
-        // 교차점을 못 찾았지만 근사한 점이 있다면 반환 (데이터 노이즈 대응)
-        return closest;
+        return null; // 교차점 없음
     }
 
     /**
-     * 영률(Young's Modulus) 정밀 계산 (응력 구간 기반 탐색)
-     * 개선: 변형률(Strain)이 아닌 응력(Stress) 구간(10%~40%)을 기준으로 탐색하여
-     * 초기 Toe 및 소성 구간의 영향을 배제하고 순수 탄성 구간을 찾음.
+     * 영률(Young's Modulus)과 Y절편(Intercept)을 함께 계산하여 반환 (True Stress 기준)
      */
-    public double calculateYoungsModulus(List<StressStrainPoint> points) {
-        if (points == null || points.size() < 20) return 0.0;
+    public double[] calculateYoungsModulusWithIntercept(List<StressStrainPoint> points) {
+        return calculateYoungsModulusWithIntercept(points, false);
+    }
+
+    /**
+     * 영률(Young's Modulus)과 Y절편(Intercept)을 함께 계산하여 반환 (모드 선택 가능)
+     */
+    public double[] calculateYoungsModulusWithIntercept(List<StressStrainPoint> points, boolean useEngineering) {
+        if (points == null || points.size() < 20) return new double[]{0.0, 0.0};
 
         // 1. UTS(최대 강도) 찾기
         double maxStress = 0.0;
         for (StressStrainPoint p : points) {
-            if (p.getTrueStress() > maxStress) maxStress = p.getTrueStress();
+            double val = useEngineering ? p.getEngineeringStress() : p.getTrueStress();
+            if (val > maxStress) maxStress = val;
         }
 
         // 2. 탐색 범위 설정: 응력의 10% ~ 40% 구간
-        // (Toe 회피 및 소성 구간 진입 방지)
         double lowerBound = maxStress * 0.10;
         double upperBound = maxStress * 0.40;
 
         List<StressStrainPoint> candidateRegion = new ArrayList<>();
         for (StressStrainPoint p : points) {
-            double stress = p.getTrueStress();
+            double stress = useEngineering ? p.getEngineeringStress() : p.getTrueStress();
             if (stress >= lowerBound && stress <= upperBound) {
                 candidateRegion.add(p);
             }
-            // 탄성 구간을 확실히 벗어났다고 판단되면 조기 종료 (최적화)
             if (stress > upperBound * 1.5) break; 
         }
         
-        // 데이터가 너무 적으면(샘플링 부족), 범위를 조금 더 넓혀서 재시도 (0~50%)
+        // 데이터 부족 시 재시도 (0~50%)
         if (candidateRegion.size() < 10) {
             candidateRegion.clear();
             lowerBound = 0.0; 
             upperBound = maxStress * 0.50;
             for (StressStrainPoint p : points) {
-                if (p.getTrueStress() >= lowerBound && p.getTrueStress() <= upperBound) {
+                double stress = useEngineering ? p.getEngineeringStress() : p.getTrueStress();
+                if (stress >= lowerBound && stress <= upperBound) {
                     candidateRegion.add(p);
                 }
-                if (p.getTrueStress() > upperBound * 1.5) break;
+                if (stress > upperBound * 1.5) break;
             }
         }
 
-        if (candidateRegion.size() < 5) return 0.0;
+        if (candidateRegion.size() < 5) return new double[]{0.0, 0.0};
 
-        // 3. 슬라이딩 윈도우 설정 (이하 기존 로직 유지)
-        // 거시적인 선형성을 보기 위해 윈도우를 충분히 크게 잡음
+        // 3. 슬라이딩 윈도우 설정
         int windowSize = Math.min(20, candidateRegion.size() / 2);
         if (windowSize < 5) windowSize = 5;
 
         double maxSlope = 0.0;
+        double bestIntercept = 0.0; // 최적 기울기일 때의 절편
         
-        // 비상용: R²가 가장 좋은 구간 (기울기가 낮더라도)
         double fallbackSlope = 0.0;
+        double fallbackIntercept = 0.0;
         double maxR2 = -1.0;
 
         for (int i = 0; i <= candidateRegion.size() - windowSize; i += 1) {
             List<StressStrainPoint> subset = candidateRegion.subList(i, i + windowSize);
-            double[] reg = calculateLinearRegression(subset); // [0]: slope, [1]: r2
+            double[] reg = calculateLinearRegressionWithIntercept(subset, useEngineering); // [0]: slope, [1]: intercept, [2]: r2
             double slope = reg[0];
-            double r2 = reg[1];
+            double intercept = reg[1];
+            double r2 = reg[2];
 
             if (slope <= 0) continue;
 
-            // 3. [핵심] 거시적 판단 로직
-            // 직선성이 확보된(0.98 이상) 구간들 중에서 '가장 가파른' 기울기를 찾음
-            // (알루미늄 등 초기 노이즈가 있는 경우 0.99는 너무 가혹하므로 0.98로 완화하되 기울기 우선)
+            // 거시적 판단 로직
             if (r2 > 0.980) {
                 if (slope > maxSlope) {
                     maxSlope = slope;
+                    bestIntercept = intercept;
                 }
             }
 
-            // 비상용 (직선 구간이 0.99를 못 넘길 경우 대비)
             if (r2 > maxR2) {
                 maxR2 = r2;
                 fallbackSlope = slope;
+                fallbackIntercept = intercept;
             }
         }
 
         // 4. 결과 반환 (MPa -> GPa)
-        // 0.99 이상의 고품질 구간을 찾았으면 그것을 우선 사용
         if (maxSlope > 0) {
-            return maxSlope / 1000.0;
+            return new double[]{maxSlope / 1000.0, bestIntercept};
         }
         
-        // 0.99를 못 넘겼다면, 0.98 이상이면서 기울기가 높은 것을 다시 탐색 (기준 완화)
+        // 기준 완화 재탐색
         if (maxR2 > 0.98 && maxSlope == 0.0) {
              for (int i = 0; i <= candidateRegion.size() - windowSize; i += 1) {
                 List<StressStrainPoint> subset = candidateRegion.subList(i, i + windowSize);
-                double[] reg = calculateLinearRegression(subset);
-                if (reg[1] > 0.95 && reg[0] > maxSlope) { // 0.95 이상이면 기울기 우선
+                double[] reg = calculateLinearRegressionWithIntercept(subset, useEngineering);
+                if (reg[2] > 0.95 && reg[0] > maxSlope) { 
                     maxSlope = reg[0];
+                    bestIntercept = reg[1];
                 }
             }
-            if(maxSlope > 0) return maxSlope / 1000.0;
+            if(maxSlope > 0) return new double[]{maxSlope / 1000.0, bestIntercept};
         }
 
-        // 정 안되면 R²가 제일 좋았던 것 반환
-        return fallbackSlope / 1000.0;
+        return new double[]{fallbackSlope / 1000.0, fallbackIntercept};
     }
 
     /**
-     * 선형 회귀 계산 헬퍼 메서드
-     * @param points 구간 데이터
-     * @return double[] {기울기(Slope), 결정계수(R²)}
+     * 수동으로 지정된 변형률(Strain) 구간을 사용하여 물성치를 재계산합니다.
+     * (Legacy 호환용 - True Strain 기준)
      */
-    private double[] calculateLinearRegression(List<StressStrainPoint> points) {
+    public AnalysisResult recalculateFromManualSlope(List<StressStrainPoint> points, AnalysisResult currentResult, double startStrain, double endStrain) {
+        return recalculateFromManualSlope(points, currentResult, startStrain, endStrain, false);
+    }
+
+    /**
+     * 수동으로 지정된 변형률(Strain) 구간을 사용하여 물성치를 재계산합니다.
+     * 
+     * @param points 원본 데이터
+     * @param startStrain 구간 시작 변형률
+     * @param endStrain 구간 끝 변형률
+     * @param useEngineering 공칭 응력/변형률 사용 여부
+     * @return 업데이트된 AnalysisResult
+     */
+    public AnalysisResult recalculateFromManualSlope(List<StressStrainPoint> points, AnalysisResult currentResult, double startStrain, double endStrain, boolean useEngineering) {
+        if (points == null || points.size() < 10 || currentResult == null) return currentResult;
+        
+        List<StressStrainPoint> smoothedPoints = applySmoothing(points);
+        List<StressStrainPoint> manualRegion = new ArrayList<>();
+        
+        // 1. 선택된 구간 데이터 추출
+        for(StressStrainPoint p : smoothedPoints) {
+            double strain = useEngineering ? p.getEngineeringStrain() : p.getTrueStrain();
+            if(strain >= startStrain && strain <= endStrain) {
+                manualRegion.add(p);
+            }
+        }
+        
+        if(manualRegion.size() < 2) return currentResult; // 데이터 너무 적음
+        
+        // 2. 해당 구간에 대한 선형 회귀
+        double[] reg = calculateLinearRegressionWithIntercept(manualRegion, useEngineering);
+        double slope = reg[0];
+        double intercept = reg[1];
+        double r2 = reg[2];
+        
+        // 3. 결과 업데이트
+        if (useEngineering) {
+            currentResult.setYoungsModulusEng(slope / 1000.0);
+            currentResult.setElasticLineInterceptEng(intercept);
+        } else {
+            currentResult.setYoungsModulus(slope / 1000.0); // MPa -> GPa
+            currentResult.setElasticLineIntercept(intercept);
+        }
+        
+        // 4. Offset 항복점 재계산
+        if (useEngineering) {
+            StressStrainPoint offsetPointEng = calculateOffsetYieldPoint(smoothedPoints, currentResult.getYoungsModulusEng(), 0.002, true);
+            currentResult.setOffsetYieldPointEng(offsetPointEng);
+        } else {
+            StressStrainPoint offsetPoint = calculateOffsetYieldPoint(smoothedPoints, currentResult.getYoungsModulus(), 0.002, false);
+            currentResult.setOffsetYieldPoint(offsetPoint);
+        }
+        
+        // Auto 모드가 Offset이었거나, 사용자가 Offset 모드를 보고 있었다면 YieldPoint도 갱신
+        if (currentResult.getYieldType() == AnalysisResult.YieldType.OFFSET_02) {
+            if (useEngineering) {
+                if (currentResult.getOffsetYieldPointEng() != null) {
+                    currentResult.setYieldPoint(currentResult.getOffsetYieldPointEng());
+                    currentResult.setYieldStrength(currentResult.getOffsetYieldPointEng().getEngineeringStress());
+                }
+            } else {
+                if (currentResult.getOffsetYieldPoint() != null) {
+                    currentResult.setYieldPoint(currentResult.getOffsetYieldPoint());
+                    currentResult.setYieldStrength(currentResult.getOffsetYieldPoint().getTrueStress());
+                }
+            }
+        }
+        
+        System.out.println(String.format("  ✓ Manual Recalc(Eng=%b): Range[%.4f ~ %.4f], E=%.1f GPa, R²=%.4f", 
+                useEngineering, startStrain, endStrain, currentResult.getYoungsModulus(), r2));
+        
+        return currentResult;
+    }
+
+    /**
+     * 기존 메서드 호환성 유지 (삭제 예정이나 안전을 위해 남겨둠)
+     */
+    public double calculateYoungsModulus(List<StressStrainPoint> points) {
+        return calculateYoungsModulusWithIntercept(points)[0];
+    }
+
+    /**
+     * 선형 회귀 계산 (Intercept 포함, True Stress 기준)
+     */
+    private double[] calculateLinearRegressionWithIntercept(List<StressStrainPoint> points) {
+        return calculateLinearRegressionWithIntercept(points, false);
+    }
+
+    /**
+     * 선형 회귀 계산 (Intercept 포함, 모드 선택 가능)
+     * @return double[] {Slope, Intercept, R²}
+     */
+    private double[] calculateLinearRegressionWithIntercept(List<StressStrainPoint> points, boolean useEngineering) {
         double sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0;
         int n = points.size();
         
         for (StressStrainPoint p : points) {
-            double x = p.getTrueStrain();
-            double y = p.getTrueStress();
+            double x = useEngineering ? p.getEngineeringStrain() : p.getTrueStrain();
+            double y = useEngineering ? p.getEngineeringStress() : p.getTrueStress();
             sumX += x;
             sumY += y;
             sumXY += x * y;
@@ -458,7 +569,7 @@ public class MaterialProperties {
         }
 
         double denominator = n * sumX2 - sumX * sumX;
-        if (denominator == 0) return new double[]{0, 0};
+        if (denominator == 0) return new double[]{0, 0, 0};
 
         double slope = (n * sumXY - sumX * sumY) / denominator;
         double intercept = (sumY - slope * sumX) / n;
@@ -467,14 +578,15 @@ public class MaterialProperties {
         double yMean = sumY / n;
         
         for (StressStrainPoint p : points) {
-            double y = p.getTrueStress();
-            double yPred = slope * p.getTrueStrain() + intercept;
+            double x = useEngineering ? p.getEngineeringStrain() : p.getTrueStrain();
+            double y = useEngineering ? p.getEngineeringStress() : p.getTrueStress();
+            double yPred = slope * x + intercept;
             ssTot += Math.pow(y - yMean, 2);
             ssRes += Math.pow(y - yPred, 2);
         }
         
         double r2 = (ssTot == 0) ? 0 : (1 - (ssRes / ssTot));
-        return new double[]{slope, r2};
+        return new double[]{slope, intercept, r2};
     }
 
     /**
@@ -570,3 +682,4 @@ public class MaterialProperties {
         return points.get(points.size() - 1).getTrueStrain();
     }
 }
+

@@ -1,7 +1,5 @@
 package meva.models;
 
-import meva.models.StressStrainPoint;
-
 /**
  * 재료 물성 분석 결과를 담는 컨테이너 클래스 (DTO)
  * GraphPanel(시각화) 및 ResultPanel(수치 표시)에 데이터를 전달하는 역할
@@ -14,7 +12,8 @@ public class AnalysisResult {
     private StressStrainPoint yieldPoint;      // 대표 항복점 (0.2% Offset 또는 상항복점)
     private StressStrainPoint upperYieldPoint; // 상항복점 (불연속 항복 시)
     private StressStrainPoint lowerYieldPoint; // 하항복점 (불연속 항복 시)
-    private StressStrainPoint offsetYieldPoint; // 0.2% 오프셋 항복점 (별도 저장용)
+    private StressStrainPoint offsetYieldPoint; // 0.2% 오프셋 항복점 (True 기준)
+    private StressStrainPoint offsetYieldPointEng; // 0.2% 오프셋 항복점 (Engineering 기준)
     private StressStrainPoint fracturePoint;   // 파단점
 
     // 항복 거동 타입
@@ -25,7 +24,10 @@ public class AnalysisResult {
     private YieldType yieldType = YieldType.OFFSET_02; // 기본값
 
     // 계산된 물성치 (ResultPanel 표시용)
-    private double youngsModulus;      // 영률 (GPa)
+    private double youngsModulus;      // 영률 (GPa) (True Stress 기준)
+    private double elasticLineIntercept; // 탄성 기울기 선의 Y절편 (True Stress 기준)
+    private double youngsModulusEng;      // 영률 (GPa) (Engineering Stress 기준)
+    private double elasticLineInterceptEng; // 탄성 기울기 선의 Y절편 (Engineering Stress 기준)
     private double yieldStrength;      // 항복 강도 (MPa)
     private double tensileStrength;    // UTS (MPa)
     private double elongation;         // 연신율 (%)
@@ -60,11 +62,23 @@ public class AnalysisResult {
     public StressStrainPoint getOffsetYieldPoint() { return offsetYieldPoint; }
     public void setOffsetYieldPoint(StressStrainPoint offsetYieldPoint) { this.offsetYieldPoint = offsetYieldPoint; }
 
+    public StressStrainPoint getOffsetYieldPointEng() { return offsetYieldPointEng; }
+    public void setOffsetYieldPointEng(StressStrainPoint offsetYieldPointEng) { this.offsetYieldPointEng = offsetYieldPointEng; }
+
     public YieldType getYieldType() { return yieldType; }
     public void setYieldType(YieldType yieldType) { this.yieldType = yieldType; }
 
     public double getYoungsModulus() { return youngsModulus; }
     public void setYoungsModulus(double youngsModulus) { this.youngsModulus = youngsModulus; }
+
+    public double getElasticLineIntercept() { return elasticLineIntercept; }
+    public void setElasticLineIntercept(double elasticLineIntercept) { this.elasticLineIntercept = elasticLineIntercept; }
+
+    public double getYoungsModulusEng() { return youngsModulusEng; }
+    public void setYoungsModulusEng(double youngsModulusEng) { this.youngsModulusEng = youngsModulusEng; }
+
+    public double getElasticLineInterceptEng() { return elasticLineInterceptEng; }
+    public void setElasticLineInterceptEng(double elasticLineInterceptEng) { this.elasticLineInterceptEng = elasticLineInterceptEng; }
 
     public double getYieldStrength() { return yieldStrength; }
     public void setYieldStrength(double yieldStrength) { this.yieldStrength = yieldStrength; }

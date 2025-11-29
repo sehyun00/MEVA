@@ -39,6 +39,10 @@ public class MainFrame extends JFrame {
 
     // 현재 실험 ID (저장된 실험 추적용)
     private int currentExperimentId = -1;
+    
+    // 현재 분석 결과 데이터 (재사용용)
+    private AnalysisResult currentAnalysisResult;
+    private boolean isManualCalculation = false; // 수동 보정 여부 추적
 
     /**
      * MainFrame 생성자
@@ -94,6 +98,7 @@ public class MainFrame extends JFrame {
 
         // ResultsPanel 초기화 (EAST)
         resultsPanel = new ResultPanel();
+        visualizationPanel.setResultPanel(resultsPanel); // [New] 연결
         setupResultPanelListeners();
 
         // StatusBar 초기화 (SOUTH)
@@ -145,6 +150,19 @@ public class MainFrame extends JFrame {
         visualizationPanel.setZoomOutListener(e -> onZoomOut());
         visualizationPanel.setResetZoomListener(e -> onResetZoom());
         visualizationPanel.setExportChartListener(e -> onExportChart());
+        
+        // 마커 기준 변경 또는 수동 재계산 시 결과 패널 업데이트
+        visualizationPanel.setMarkerRefChangedListener(e -> {
+            if ("RECALCULATED".equals(e.getActionCommand())) {
+                // 수동 재계산인 경우
+                isManualCalculation = true;
+                updateResultPanelBasedOnRefMode();
+                updateStatus("Manual recalculation completed");
+            } else {
+                // 일반적인 마커 기준 변경
+                updateResultPanelBasedOnRefMode();
+            }
+        });
     }
 
     /**
@@ -391,6 +409,7 @@ public class MainFrame extends JFrame {
         updateStatus("파일 읽는 중...");
         progressBar.setVisible(true);
         progressBar.setIndeterminate(true);
+        isManualCalculation = false; // 새로운 계산 시 수동 모드 초기화
 
         // 백그라운드 스레드에서 처리
         SwingWorker<Void, Void> worker = new SwingWorker<Void, Void>() {
@@ -466,33 +485,11 @@ public class MainFrame extends JFrame {
                 visualizationPanel.plotStressStrainCurve(stressStrainData);
                 visualizationPanel.setAnalysisResult(analysisResult); // ⭐ 마커 표시를 위해 필수
 
-                // 5. 결과 패널 업데이트
-                // AnalysisResult 객체에서 값을 가져와 테이블 갱신
-                String yieldLabel = "항복 강도 (σy)";
-                if (analysisResult.getYieldType() == AnalysisResult.YieldType.OFFSET_02) {
-                    yieldLabel += " (0.2% Offset)";
-                } else if (analysisResult.getYieldType() == AnalysisResult.YieldType.DISCONTINUOUS) {
-                    yieldLabel += " (Upper Yield)";
-                }
-
-                Object[][] resultsData = {
-                        { "최대 응력 (σmax)", String.format("%.2f", analysisResult.getTensileStrength()), "MPa" },
-                        { "최대 응력 시 변형률 (εmax)", String.format("%.4f", analysisResult.getNeckingStartStrain()), "-" },
-                        { "극한 인장 강도 (UTS)", String.format("%.2f", analysisResult.getTensileStrength()), "MPa" },
-                        { "영률 (E)", String.format("%.2f", analysisResult.getYoungsModulus()), "GPa" },
-                        { yieldLabel, String.format("%.2f", analysisResult.getYieldStrength()), "MPa" },
-                        { "연신율", String.format("%.2f", analysisResult.getElongation()), "%" },
-                        { "단면 감소율", String.format("%.2f", analysisResult.getReductionOfArea()), "%" },
-                        { "인성", String.format("%.2f", analysisResult.getToughness()), "MJ/m³" },
-                        { "탄성 에너지", String.format("%.2f", analysisResult.getResilience()), "MJ/m³" },
-                        { "탄성 한계", analysisResult.getElasticLimit() > 0 ? String.format("%.2f", analysisResult.getElasticLimit()) : "-", "MPa" },
-                        { "비례 한계", analysisResult.getProportionalLimit() > 0 ? String.format("%.2f", analysisResult.getProportionalLimit()) : "-", "MPa" },
-                        { "네킹 시작 변형률", analysisResult.getNeckingStartStrain() > 0 ? String.format("%.4f", analysisResult.getNeckingStartStrain()) : "-", "-" },
-                        { "파괴 응력", analysisResult.getFractureStress() > 0 ? String.format("%.2f", analysisResult.getFractureStress()) : "-", "MPa" },
-                        { "파괴 변형률", analysisResult.getFractureStrain() > 0 ? String.format("%.4f", analysisResult.getFractureStrain()) : "-", "-" }
-                };
-
-                resultsPanel.updateResults(resultsData);
+                // 메인 프레임의 현재 분석 결과 업데이트
+                currentAnalysisResult = analysisResult;
+                
+                // 5. 결과 패널 업데이트 (Ref Mode 반영)
+                updateResultPanelBasedOnRefMode();
 
                 updateStatus("계산 완료 (" + stressStrainData.size() + " 데이터 포인트) - 실험 ID: " + currentExperimentId);
             }
@@ -622,6 +619,127 @@ public class MainFrame extends JFrame {
 
     private void onExportChart() {
         updateStatus("Chart exported");
+    }
+
+    /**
+     * 현재 마커 기준(Engineering/True)에 따라 결과 패널의 값을 업데이트합니다.
+     */
+    private void updateResultPanelBasedOnRefMode() {
+        if (currentAnalysisResult == null) return;
+
+        int refMode = visualizationPanel.getMarkerRefMode();
+        boolean useEngineering = (refMode == 0);
+        String modeSuffix = useEngineering ? " (Eng)" : " (True)";
+        if (isManualCalculation) modeSuffix += " (Manual)";
+        
+        resultsPanel.setTitleText("Results" + modeSuffix);
+
+        // Helper to get stress value
+        java.util.function.Function<StressStrainPoint, Double> getStress = p -> 
+            (p == null) ? 0.0 : (useEngineering ? p.getEngineeringStress() : p.getTrueStress());
+            
+        // Helper to get strain value
+        java.util.function.Function<StressStrainPoint, Double> getStrain = p -> 
+            (p == null) ? 0.0 : (useEngineering ? p.getEngineeringStrain() : p.getTrueStrain());
+
+        // 1. 항복점 라벨 및 포인트 결정 (동적 반영)
+        String yieldLabel = "항복 강도 (σy)";
+        StressStrainPoint yieldPoint = null;
+        
+        // 현재 선택된 모드 확인 (0: Auto, 1: Offset, 2: Upper/Lower)
+        int selectedMode = visualizationPanel.getSelectedYieldMode();
+        
+        if (selectedMode == 1) { // Force 0.2% Offset
+            yieldLabel += " (0.2% Offset)";
+            yieldPoint = useEngineering ? 
+                currentAnalysisResult.getOffsetYieldPointEng() : 
+                currentAnalysisResult.getOffsetYieldPoint();
+        } else if (selectedMode == 2) { // Force Upper/Lower
+            yieldLabel += " (Upper Yield)";
+            yieldPoint = currentAnalysisResult.getUpperYieldPoint();
+        } else { // Auto
+            // AnalysisResult의 yieldType에 따라 결정
+            if (currentAnalysisResult.getYieldType() == AnalysisResult.YieldType.OFFSET_02) {
+                yieldLabel += " (0.2% Offset)";
+                yieldPoint = useEngineering ? 
+                    currentAnalysisResult.getOffsetYieldPointEng() : 
+                    currentAnalysisResult.getOffsetYieldPoint();
+            } else {
+                yieldLabel += " (Upper Yield)";
+                yieldPoint = currentAnalysisResult.getUpperYieldPoint();
+            }
+        }
+        
+        // 만약 선택된 포인트가 null이면 기본값(대표값) 사용 (안전장치)
+        if (yieldPoint == null) {
+            yieldPoint = currentAnalysisResult.getYieldPoint();
+        }
+
+        // 2. 값 계산 (현재 모드 반영)
+        double tensileStrength = getStress.apply(currentAnalysisResult.getUtsPoint());
+        double strainAtMax = getStrain.apply(currentAnalysisResult.getUtsPoint());
+        double yieldStrength = getStress.apply(yieldPoint);
+        double fractureStress = getStress.apply(currentAnalysisResult.getFracturePoint());
+        double fractureStrain = getStrain.apply(currentAnalysisResult.getFracturePoint());
+        
+        double youngsModulus = useEngineering ? currentAnalysisResult.getYoungsModulusEng() : currentAnalysisResult.getYoungsModulus();
+        if (useEngineering && youngsModulus == 0.0 && currentAnalysisResult.getYoungsModulus() > 0) {
+             youngsModulus = currentAnalysisResult.getYoungsModulus(); // Fallback
+        }
+
+        // 2. 결과 리스트 동적 생성
+        java.util.List<Object[]> rows = new java.util.ArrayList<>();
+        
+        rows.add(new Object[]{ "최대 응력 (σmax)", String.format("%.2f", tensileStrength), "MPa" });
+        rows.add(new Object[]{ "최대 응력 시 변형률 (εmax)", String.format("%.4f", strainAtMax), "-" });
+        rows.add(new Object[]{ "극한 인장 강도 (UTS)", String.format("%.2f", tensileStrength), "MPa" });
+        rows.add(new Object[]{ "영률 (E)", String.format("%.2f", youngsModulus), "GPa" });
+
+        // [수정됨] 항복점 표시 로직 분기
+        boolean showDiscontinuous = false;
+        
+        if (selectedMode == 2) { // Force Upper/Lower
+            showDiscontinuous = true;
+        } else if (selectedMode == 0) { // Auto
+            if (currentAnalysisResult.getYieldType() == AnalysisResult.YieldType.DISCONTINUOUS) {
+                showDiscontinuous = true;
+            }
+        }
+        
+        if (showDiscontinuous) {
+            // 상/하항복점 모두 표시
+            double upperVal = getStress.apply(currentAnalysisResult.getUpperYieldPoint());
+            double lowerVal = getStress.apply(currentAnalysisResult.getLowerYieldPoint());
+            
+            rows.add(new Object[]{ "상항복 강도 (Upper Yield)", String.format("%.2f", upperVal), "MPa" });
+            rows.add(new Object[]{ "하항복 강도 (Lower Yield)", String.format("%.2f", lowerVal), "MPa" });
+        } else {
+            // 0.2% Offset 표시
+            StressStrainPoint offsetPoint = useEngineering ? 
+                currentAnalysisResult.getOffsetYieldPointEng() : 
+                currentAnalysisResult.getOffsetYieldPoint();
+                
+            // 만약 null이면 대표값 사용
+            if (offsetPoint == null) offsetPoint = currentAnalysisResult.getYieldPoint();
+            
+            double offsetVal = getStress.apply(offsetPoint);
+            rows.add(new Object[]{ "항복 강도 (0.2% Offset)", String.format("%.2f", offsetVal), "MPa" });
+        }
+
+        // 나머지 공통 물성치 추가
+        rows.add(new Object[]{ "연신율", String.format("%.2f", currentAnalysisResult.getElongation()), "%" });
+        rows.add(new Object[]{ "단면 감소율", String.format("%.2f", currentAnalysisResult.getReductionOfArea()), "%" });
+        rows.add(new Object[]{ "인성", String.format("%.2f", currentAnalysisResult.getToughness()), "MJ/m³" });
+        rows.add(new Object[]{ "탄성 에너지", String.format("%.2f", currentAnalysisResult.getResilience()), "MJ/m³" });
+        rows.add(new Object[]{ "탄성 한계", currentAnalysisResult.getElasticLimit() > 0 ? String.format("%.2f", currentAnalysisResult.getElasticLimit()) : "-", "MPa" });
+        rows.add(new Object[]{ "비례 한계", currentAnalysisResult.getProportionalLimit() > 0 ? String.format("%.2f", currentAnalysisResult.getProportionalLimit()) : "-", "MPa" });
+        rows.add(new Object[]{ "네킹 시작 변형률", currentAnalysisResult.getNeckingStartStrain() > 0 ? String.format("%.4f", currentAnalysisResult.getNeckingStartStrain()) : "-", "-" });
+        rows.add(new Object[]{ "파괴 응력", fractureStress > 0 ? String.format("%.2f", fractureStress) : "-", "MPa" });
+        rows.add(new Object[]{ "파괴 변형률", fractureStrain > 0 ? String.format("%.4f", fractureStrain) : "-", "-" });
+
+        // 3. 테이블 업데이트 (List -> Array 변환)
+        Object[][] resultsData = rows.toArray(new Object[0][]);
+        resultsPanel.updateResults(resultsData);
     }
 
     /**

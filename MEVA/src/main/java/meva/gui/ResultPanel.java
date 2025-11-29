@@ -27,6 +27,7 @@ public class ResultPanel extends JPanel {
     private DefaultTableModel tableModel; // 테이블의 데이터 모델 (행/열 관리)
     private JScrollPane scrollPane;     // 테이블에 스크롤 기능을 제공하는 컨테이너
     private JButton saveButton;         // 결과를 CSV 파일로 저장하는 버튼
+    private JLabel titleLabel;          // 패널 제목 레이블 (동적 변경용)
     // 외부 리스너
     private ActionListener saveButtonListener;
 
@@ -123,7 +124,7 @@ public class ResultPanel extends JPanel {
         setPreferredSize(new Dimension(300, 0));
 
         // 타이틀 레이블
-        JLabel titleLabel = new JLabel("Results");
+        titleLabel = new JLabel("Results");
         titleLabel.setFont(new Font("Arial", Font.BOLD, 14));
         titleLabel.setBorder(BorderFactory.createEmptyBorder(0, 0, 5, 0));
         add(titleLabel, BorderLayout.NORTH);
@@ -314,11 +315,55 @@ public class ResultPanel extends JPanel {
     }
 
     /**
+     * 특정 행의 배경을 깜빡이게 하여 값이 변경되었음을 알림
+     */
+    public void flashRows(int[] rowIndices) {
+        new Thread(() -> {
+            try {
+                // 임시로 다중 선택 모드로 변경 (여러 행 동시 강조를 위해)
+                int originalMode = resultsTable.getSelectionModel().getSelectionMode();
+                SwingUtilities.invokeLater(() -> resultsTable.setSelectionMode(ListSelectionModel.MULTIPLE_INTERVAL_SELECTION));
+
+                for(int i=0; i<3; i++) {
+                    SwingUtilities.invokeAndWait(() -> {
+                        resultsTable.clearSelection();
+                        for (int row : rowIndices) {
+                            if (row < resultsTable.getRowCount()) {
+                                resultsTable.addRowSelectionInterval(row, row);
+                            }
+                        }
+                    });
+                    Thread.sleep(150);
+                    
+                    SwingUtilities.invokeAndWait(() -> resultsTable.clearSelection());
+                    Thread.sleep(150);
+                }
+                
+                // 선택 모드 복구
+                SwingUtilities.invokeLater(() -> resultsTable.setSelectionMode(originalMode));
+                
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }).start();
+    }
+
+    /**
      * Save 버튼의 외부 리스너를 설정합니다.
      * 
      * @param listener 리스너
      */
     public void setSaveButtonListener(ActionListener listener) {
         this.saveButtonListener = listener;
+    }
+
+    /**
+     * 패널의 제목 텍스트를 변경합니다.
+     * @param text 새로운 제목
+     */
+    public void setTitleText(String text) {
+        if (titleLabel != null) {
+            titleLabel.setText(text);
+        }
     }
 }
