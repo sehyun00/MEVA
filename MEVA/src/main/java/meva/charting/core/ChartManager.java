@@ -218,6 +218,36 @@ public class ChartManager {
         return (slopeOverlay != null) ? slopeOverlay.getHandleEnd() : null;
     }
     
+    // --- 차트 제어 메서드 (줌/저장) ---
+
+    public void zoomIn() {
+        if (chartPanel != null) {
+            chartPanel.zoomInBoth(chartPanel.getWidth() / 2.0, chartPanel.getHeight() / 2.0);
+        }
+    }
+
+    public void zoomOut() {
+        if (chartPanel != null) {
+            chartPanel.zoomOutBoth(chartPanel.getWidth() / 2.0, chartPanel.getHeight() / 2.0);
+        }
+    }
+
+    public void resetZoom() {
+        if (chartPanel != null) {
+            chartPanel.restoreAutoBounds();
+        }
+    }
+
+    public void doSaveAs() {
+        if (chartPanel != null) {
+            try {
+                chartPanel.doSaveAs();
+            } catch (java.io.IOException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
     // --- 내부 유틸리티 ---
 
     /**

@@ -42,7 +42,7 @@ public class GraphPanel extends JPanel implements ChartInputHandler.InteractionL
     private JCheckBox slopeLineCheckBox;
     private JCheckBox elasticRegionCheckBox;
     private JCheckBox plasticRegionCheckBox;
-
+    
     // 차트 제어 버튼들
     private JButton zoomInButton;
     private JButton zoomOutButton;
@@ -55,7 +55,7 @@ public class GraphPanel extends JPanel implements ChartInputHandler.InteractionL
     private ActionListener resetZoomListener;
     private ActionListener exportChartListener;
     private ActionListener markerRefChangedListener;
-
+    
     // 외부 의존성
     private ResultPanel resultPanel;
     private MaterialProperties materialCalculator = new MaterialProperties();
@@ -92,7 +92,7 @@ public class GraphPanel extends JPanel implements ChartInputHandler.InteractionL
         // --- 하단 제어 패널 (옵션 및 버튼) ---
         graphControlPanel = new JPanel(new GridLayout(2, 1, 0, 5));
         createUIComponents(); // 버튼/체크박스 생성
-
+        
         // [Row 1] 옵션 그룹
         JPanel row1 = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 5));
         
@@ -158,7 +158,7 @@ public class GraphPanel extends JPanel implements ChartInputHandler.InteractionL
             yieldModeComboBox.setEnabled(yieldCheckBox.isSelected());
             updateVisualization();
         });
-
+        
         yieldModeComboBox = new JComboBox<>(new String[]{ "Auto (자동)", "0.2% Offset", "상/하항복점" });
         yieldModeComboBox.setEnabled(false);
         yieldModeComboBox.addActionListener(e -> {
@@ -186,32 +186,33 @@ public class GraphPanel extends JPanel implements ChartInputHandler.InteractionL
 
         plasticRegionCheckBox = new JCheckBox("소성 영역");
         plasticRegionCheckBox.addActionListener(e -> updateVisualization());
-
+        
         // 버튼 생성
         zoomInButton = new JButton("Zoom In");
         zoomInButton.addActionListener(e -> {
-            // ChartManager를 통해 줌 기능 호출 가능하도록 확장 필요하거나, 
-            // 현재는 CustomChartPanel에 직접 접근
-            // ((CustomChartPanel)chartManager.getChartPanel()).zoomInBoth(...);
-             if (zoomInListener != null) zoomInListener.actionPerformed(e);
+            chartManager.zoomIn();
+            if (zoomInListener != null) zoomInListener.actionPerformed(e);
         });
         
         zoomOutButton = new JButton("Zoom Out");
         zoomOutButton.addActionListener(e -> {
-             if (zoomOutListener != null) zoomOutListener.actionPerformed(e);
+            chartManager.zoomOut();
+            if (zoomOutListener != null) zoomOutListener.actionPerformed(e);
         });
-
+        
         resetZoomButton = new JButton("Reset Zoom");
         resetZoomButton.addActionListener(e -> {
-             if (resetZoomListener != null) resetZoomListener.actionPerformed(e);
+            chartManager.resetZoom();
+            if (resetZoomListener != null) resetZoomListener.actionPerformed(e);
         });
-
+        
         exportChartButton = new JButton("Export Chart");
         exportChartButton.addActionListener(e -> {
-             if (exportChartListener != null) exportChartListener.actionPerformed(e);
+            chartManager.doSaveAs();
+            if (exportChartListener != null) exportChartListener.actionPerformed(e);
         });
     }
-
+    
     private void setupLayout() {
         setLayout(new BorderLayout());
         setBorder(BorderFactory.createTitledBorder("응력-변형률 곡선"));
@@ -224,7 +225,7 @@ public class GraphPanel extends JPanel implements ChartInputHandler.InteractionL
     // =================================================================================
     // 2. 외부 인터페이스 (MainFrame에서 호출)
     // =================================================================================
-
+    
     /**
      * 그래프에 데이터를 표시합니다.
      */
@@ -238,14 +239,14 @@ public class GraphPanel extends JPanel implements ChartInputHandler.InteractionL
         
         // 1. ChartManager에게 데이터 전달
         chartManager.updateData(data);
-
+        
         // 2. 화면 전환 (Placeholder -> Chart)
         chartContainerPanel.removeAll();
         chartContainerPanel.add(chartManager.getChartPanel(), BorderLayout.CENTER);
         chartContainerPanel.revalidate();
         chartContainerPanel.repaint();
     }
-
+    
     /**
      * 분석 결과를 설정하고 그래프를 갱신합니다.
      */
@@ -254,7 +255,7 @@ public class GraphPanel extends JPanel implements ChartInputHandler.InteractionL
         // 초기 로드 시에는 핸들 위치도 자동 계산 (isManualUpdate = false)
         chartManager.updateAnalysisResult(result, false);
         updateVisualization();
-    }
+        }
 
     public JPanel getChartPanel() {
         return chartManager.getChartPanel();
@@ -291,8 +292,8 @@ public class GraphPanel extends JPanel implements ChartInputHandler.InteractionL
     }
 
     // --- InteractionListener 구현 (ChartInputHandler로부터 콜백) ---
-    
-    @Override
+        
+        @Override
     public void onHandleReleased() {
         // 핸들 조작 종료 시 재계산 로직 수행
         recalculateManualProperties();
@@ -312,7 +313,7 @@ public class GraphPanel extends JPanel implements ChartInputHandler.InteractionL
 
         // 2. 마커 기준 확인 (0: Eng, 1: True)
         boolean useEngineering = (markerRefComboBox.getSelectedIndex() == 0);
-
+        
         // 3. 재계산 수행
         AnalysisResult newResult = materialCalculator.recalculateFromManualSlope(
             currentData, currentResult, handleStart.x, handleEnd.x, useEngineering
@@ -354,3 +355,4 @@ public class GraphPanel extends JPanel implements ChartInputHandler.InteractionL
     public int getMarkerRefMode() { return markerRefComboBox.getSelectedIndex(); }
     public int getSelectedYieldMode() { return yieldModeComboBox.getSelectedIndex(); }
 }
+
