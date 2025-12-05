@@ -33,7 +33,9 @@ public class AnalysisResult {
     private double elongation;         // 연신율 (%)
     private double reductionOfArea;    // 단면 감소율 (%)
     private double toughness;          // 인성 (MJ/m³)
-    private double resilience;         // 탄성 에너지 (MJ/m³)
+    private double resilience;         // 탄성 에너지 (MJ/m³) (Triangle 근사값)
+    private double resilienceIntegral; // 탄성 에너지 (MJ/m³) (Integral 실제 적분값 - Auto Yield 기준)
+    private double resilienceIntegralOffset; // 탄성 에너지 (MJ/m³) (Integral 실제 적분값 - Offset 0.2% 기준)
     private double elasticLimit;       // 탄성 한계 (MPa)
     private double proportionalLimit;  // 비례 한계 (MPa)
     private double neckingStartStrain; // 네킹 시작 변형률
@@ -97,6 +99,12 @@ public class AnalysisResult {
 
     public double getResilience() { return resilience; }
     public void setResilience(double resilience) { this.resilience = resilience; }
+
+    public double getResilienceIntegral() { return resilienceIntegral; }
+    public void setResilienceIntegral(double resilienceIntegral) { this.resilienceIntegral = resilienceIntegral; }
+
+    public double getResilienceIntegralOffset() { return resilienceIntegralOffset; }
+    public void setResilienceIntegralOffset(double resilienceIntegralOffset) { this.resilienceIntegralOffset = resilienceIntegralOffset; }
 
     public double getElasticLimit() { return elasticLimit; }
     public void setElasticLimit(double elasticLimit) { this.elasticLimit = elasticLimit; }

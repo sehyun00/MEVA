@@ -315,7 +315,7 @@ public class StressStrainCalculator {
         boolean foundStart = false;
 
         for (StressStrainPoint p : points) {
-            if (p.getTrueStress() > 5.0) { // 5 MPa 이상을 시작점으로 간주
+            if (p.getTrueStress() > 5.0) { // [Fix] Strain -> Stress로 수정 (5 MPa 이상)
                 startStrain = p.getTrueStrain();
                 startStress = p.getTrueStress();
                 foundStart = true;
@@ -331,20 +331,30 @@ public class StressStrainCalculator {
 
         // 2. 모든 포인트를 시작점만큼 뺌 (Shift)
         List<StressStrainPoint> correctedPoints = new ArrayList<>();
+        // 공칭 변형률의 시작점도 파악해야 정확하지만, 여기서는 편의상 True Strain과 동일한 시점에서 0으로 맞춤
+        // 해당 시점의 Eng Strain 찾기
+        double startEngStrain = 0.0;
+        for(StressStrainPoint p : points) {
+            if(Math.abs(p.getTrueStrain() - startStrain) < 0.00001) {
+                startEngStrain = p.getEngineeringStrain();
+                break;
+            }
+        }
+
         for (StressStrainPoint p : points) {
             // 시작점 이전의 데이터는 버림 (음수 되니까)
             if (p.getTrueStrain() >= startStrain) {
-                double newStrain = p.getTrueStrain() - startStrain;
-                double newStress = p.getTrueStress(); // 응력은 보통 0부터 시작하므로 그대로 두거나 필요시 startStress를 뺌
-
-                // 만약 응력도 0이 아닌 곳에서 시작했다면:
-                // double newStress = p.getTrueStress() - startStress;
+                double newTrueStrain = p.getTrueStrain() - startStrain;
+                double newTrueStress = p.getTrueStress();
+                
+                double newEngStrain = p.getEngineeringStrain() - startEngStrain;
+                double newEngStress = p.getEngineeringStress();
 
                 correctedPoints.add(new StressStrainPoint(
-                        newStress,
-                        newStrain,
-                        p.getEngineeringStress(),
-                        p.getEngineeringStrain() - startStrain // 공칭 변형률도 보정
+                        newEngStress,
+                        newEngStrain,
+                        newTrueStress,
+                        newTrueStrain
                 ));
             }
         }

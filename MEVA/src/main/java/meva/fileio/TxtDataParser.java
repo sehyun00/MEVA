@@ -71,13 +71,11 @@ public class TxtDataParser {
         double strainGage = Double.parseDouble(values[3]);
         double thetaL = Double.parseDouble(values[4]);
 
-        // 수정됨 (v1.1): 데이터 파일 컬럼 순서 정정
-        // 기존: 5,6(True) / 7,8(Eng) 로 잘못 매핑되어 있었음
-        // 변경: 5,6(Eng) / 7,8(True) 로 정상화
-        double eStress = Double.parseDouble(values[5]);
-        double eStrain = Double.parseDouble(values[6]) / 100.0;
-        double tStress = Double.parseDouble(values[7]);
-        double tStrain = Double.parseDouble(values[8]) / 100.0;
+        // 수정됨 (v1.2): 사용자 피드백 반영 (5,6열=True, 7,8열=Eng)
+        double tStress = Double.parseDouble(values[5]);
+        double tStrain = Double.parseDouble(values[6]) / 100.0;
+        double eStress = Double.parseDouble(values[7]);
+        double eStrain = Double.parseDouble(values[8]) / 100.0;
 
         return new DataPoint(time, load, displacement, strainGage, thetaL,
                 eStress, eStrain, tStress, tStrain);

@@ -288,10 +288,19 @@ public class GraphPanel extends JPanel implements ChartInputHandler.InteractionL
      */
     public void setAnalysisResult(AnalysisResult result) {
         this.currentResult = result;
+        
+        // 1. ChartManager에게 결과 전달 (시각화용)
         // 초기 로드 시에는 핸들 위치도 자동 계산 (isManualUpdate = false)
         chartManager.updateAnalysisResult(result, false);
-        updateVisualization();
+        
+        // 2. ResultPanel에게 결과 전달 (수치 표시용)
+        if (this.resultPanel != null) {
+            this.resultPanel.setAnalysisResult(result);
         }
+        
+        // 3. UI 옵션에 맞춰 최종 시각화 및 수치 업데이트 수행
+        updateVisualization();
+    }
 
     public JPanel getChartPanel() {
         return chartManager.getChartPanel();
@@ -332,7 +341,8 @@ public class GraphPanel extends JPanel implements ChartInputHandler.InteractionL
         // [Fix] ResultPanel 수치 업데이트 연동
         if (resultPanel != null) {
             boolean isTrueMode = (markerRefComboBox.getSelectedIndex() == 1);
-            resultPanel.updateMode(isTrueMode, useTriangle);
+            int yieldMode = yieldModeComboBox.getSelectedIndex();
+            resultPanel.updateMode(isTrueMode, useTriangle, yieldMode);
         }
     }
 
@@ -374,6 +384,12 @@ public class GraphPanel extends JPanel implements ChartInputHandler.InteractionL
         this.currentResult = newResult;
         // 수동 조작이므로 핸들 위치를 초기화하지 않음 (true)
         chartManager.updateAnalysisResult(newResult, true);
+        
+        // [안전장치] ResultPanel에도 최신 결과 객체 전달 (동기화 보장)
+        if (resultPanel != null) {
+            resultPanel.setAnalysisResult(newResult);
+        }
+        
         updateVisualization();
         
         // 5. 결과 패널 알림 및 깜빡임 효과
