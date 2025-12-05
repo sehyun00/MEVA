@@ -625,27 +625,136 @@ public class MaterialProperties {
         return (1 - areaRatio) * 100.0;
     }
 
+    /**
+     * 재료의 인성(Toughness) 계산
+     * 파단점까지의 응력-변형률 곡선 아래 면적을 적분
+     * 
+     * @param points 응력-변형률 데이터 리스트
+     * @return 인성 (MJ/m³)
+     */
     public double calculateToughness(List<StressStrainPoint> points) {
         if (points == null || points.size() < 2) return 0.0;
-        double totalArea = 0.0;
-        for (int i = 1; i < points.size(); i++) {
-            StressStrainPoint p1 = points.get(i - 1);
-            StressStrainPoint p2 = points.get(i);
-            totalArea += (p1.getTrueStress() + p2.getTrueStress()) / 2.0 * (p2.getTrueStrain() - p1.getTrueStrain());
+        
+        // 파단점 찾기 (마지막 포인트)
+        StressStrainPoint fracturePoint = points.get(points.size() - 1);
+        double epsilonFracture = fracturePoint.getTrueStrain();
+        
+        // 데이터 준비 (True Strain, True Stress)
+        List<Double> epsilons = new ArrayList<>();
+        List<Double> sigmas = new ArrayList<>();
+        for (StressStrainPoint p : points) {
+            epsilons.add(p.getTrueStrain());
+            sigmas.add(p.getTrueStress());
         }
-        return totalArea;
+        
+        // 사다리꼴 적분 수행
+        return calculateToughnessTrapezoidal(epsilons, sigmas, epsilonFracture);
     }
 
-    public double calculateResilience(List<StressStrainPoint> points, double yieldStrength) {
-        if (points == null || points.size() < 2 || yieldStrength <= 0) return 0.0;
-        double totalArea = 0.0;
-        for (int i = 1; i < points.size(); i++) {
-            StressStrainPoint p1 = points.get(i - 1);
-            StressStrainPoint p2 = points.get(i);
-            if (p2.getTrueStress() > yieldStrength) break;
-            totalArea += (p1.getTrueStress() + p2.getTrueStress()) / 2.0 * (p2.getTrueStrain() - p1.getTrueStrain());
+    /**
+     * 사다리꼴 적분법(Trapezoidal Rule)을 이용한 인성 계산 (내부 로직)
+     * 불규칙한 데이터 간격을 고려하여 면적을 계산함
+     * 
+     * @param epsilons 변형률 리스트
+     * @param sigmas 응력 리스트
+     * @param epsilonFracture 파단 변형률 (적분 상한)
+     * @return 적분된 면적 (MJ/m³)
+     */
+    public double calculateToughnessTrapezoidal(List<Double> epsilons, List<Double> sigmas, double epsilonFracture) {
+        if (epsilons == null || sigmas == null) return 0.0;
+        int n = Math.min(epsilons.size(), sigmas.size());
+        if (n < 2) return 0.0;
+
+        double area = 0.0;
+
+        for (int i = 0; i < n - 1; i++) {
+            double e0 = epsilons.get(i);
+            double e1 = epsilons.get(i + 1);
+            double s0 = sigmas.get(i);
+            double s1 = sigmas.get(i + 1);
+
+            // 파단점 이후 구간은 무시
+            if (e0 >= epsilonFracture) break;
+
+            // 마지막 구간이 파단점을 가로지르는 경우 (Linear Interpolation)
+            if (e1 > epsilonFracture) {
+                // 파단점에서의 응력 추정 (선형 보간)
+                double sF = s0 + (s1 - s0) * (epsilonFracture - e0) / (e1 - e0);
+
+                // 잘린 사다리꼴 면적 추가: (e0 ~ epsilonFracture)
+                double base = epsilonFracture - e0;
+                double avgHeight = 0.5 * (s0 + sF);
+                area += avgHeight * base;
+                break;
+            } else {
+                // 일반 구간: 전체 사다리꼴 면적 추가
+                double base = e1 - e0;
+                double avgHeight = 0.5 * (s0 + s1);
+                area += avgHeight * base;
+            }
         }
-        return totalArea;
+
+        return area;
+    }
+
+    /**
+     * 탄성 에너지(Resilience) 계산 (삼각형 근사 - Primary)
+     * Hooke's Law 가정: 0.5 * YieldStrength * YieldStrain
+     * 
+     * @param points 응력-변형률 데이터 (사용하지 않음, 호환성 위해 유지)
+     * @param yieldStrength 항복 강도 (MPa)
+     * @return 탄성 에너지 (MJ/m³)
+     */
+    public double calculateResilience(List<StressStrainPoint> points, double yieldStrength) {
+        // 항복점이 없으면 계산 불가
+        if (yieldStrength <= 0 || points == null || points.isEmpty()) return 0.0;
+
+        // 항복 변형률 찾기 (데이터에서 yieldStrength에 가장 가까운 점 탐색)
+        // 정확도를 위해 보간법을 쓸 수도 있지만, 여기서는 삼각형 근사를 위한 대표값만 찾음
+        double yieldStrain = 0.0;
+        
+        // 1. 단순 탐색
+        for(StressStrainPoint p : points) {
+            if (Math.abs(p.getTrueStress() - yieldStrength) < 1.0) { // 오차 1MPa 이내
+                yieldStrain = p.getTrueStrain();
+                break;
+            }
+        }
+        
+        // 2. 못 찾았으면(오프셋 등으로 계산된 값이 데이터에 딱 없을 때)
+        // E(영률)을 역산해서 추정하거나, 가장 가까운 점 사용
+        if (yieldStrain == 0.0) {
+             // 근사적으로 Young's Modulus를 이용해 역산: ε = σ / E
+             // 하지만 여기선 points가 있으니 가장 가까운 놈으로
+             double minDiff = Double.MAX_VALUE;
+             for(StressStrainPoint p : points) {
+                 double diff = Math.abs(p.getTrueStress() - yieldStrength);
+                 if(diff < minDiff) {
+                     minDiff = diff;
+                     yieldStrain = p.getTrueStrain();
+                 }
+             }
+        }
+        
+        // 삼각형 면적 공식: 0.5 * σ_y * ε_y
+        return 0.5 * yieldStrength * yieldStrain;
+    }
+    
+    /**
+     * 탄성 에너지(Resilience) 계산 (정밀 적분 - Secondary)
+     * 0 ~ 항복점까지의 실제 곡선 적분
+     */
+    public double calculateResilienceIntegral(List<StressStrainPoint> points, double yieldStrain) {
+        if (points == null || points.size() < 2) return 0.0;
+        
+        List<Double> epsilons = new ArrayList<>();
+        List<Double> sigmas = new ArrayList<>();
+        for(StressStrainPoint p : points) {
+            epsilons.add(p.getTrueStrain());
+            sigmas.add(p.getTrueStress());
+        }
+        
+        return calculateToughnessTrapezoidal(epsilons, sigmas, yieldStrain);
     }
 
     public double calculateElasticLimit(List<StressStrainPoint> points, double youngsModulus) {

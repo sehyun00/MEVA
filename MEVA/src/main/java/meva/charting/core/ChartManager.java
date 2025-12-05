@@ -3,6 +3,7 @@
 package meva.charting.core;
 
 import meva.charting.interactions.ChartInputHandler;
+import meva.charting.overlays.AreaHighlightOverlay;
 import meva.charting.overlays.CrosshairOverlay;
 import meva.charting.overlays.SlopeOverlay;
 import meva.charting.style.ChartStyler;
@@ -47,6 +48,7 @@ public class ChartManager {
     // --- 오버레이 ---
     private CrosshairOverlay crosshairOverlay;
     private SlopeOverlay slopeOverlay;
+    private AreaHighlightOverlay areaHighlightOverlay; // 신규 추가
     
     // --- 핸들러 ---
     private ChartInputHandler inputHandler;
@@ -62,6 +64,8 @@ public class ChartManager {
     private boolean showSlopeLine = true;
     private boolean showElasticRegion = false;
     private boolean showPlasticRegion = false;
+    private boolean showResilience = true; // 탄성 에너지 표시 여부
+    private boolean showToughness = true;  // 인성 표시 여부
     
     private int selectedYieldMode = 0; // 0: Auto, 1: Offset, 2: Upper/Lower
 
@@ -98,9 +102,11 @@ public class ChartManager {
         chartPanel.setBackground(Color.WHITE);
 
         // 4. 오버레이 생성 및 등록
+        areaHighlightOverlay = new AreaHighlightOverlay(chart.getXYPlot()); // 가장 밑에 깔려야 함
         crosshairOverlay = new CrosshairOverlay();
         slopeOverlay = new SlopeOverlay();
 
+        chartPanel.addOverlay(areaHighlightOverlay); // 순서 중요: 먼저 추가된게 아래에 깔림
         chartPanel.addOverlay(crosshairOverlay);
         chartPanel.addOverlay(slopeOverlay);
 
@@ -164,9 +170,103 @@ public class ChartManager {
              updateSlopeHandlesFromServer(result);
         }
         
+        // 오버레이 데이터 갱신 (Resilience & Toughness)
+        updateOverlayData(result);
+        
         refreshVisuals(); // 시각화 요소(마커, 라인 등) 다시 그리기
     }
 
+    /**
+     * AreaHighlightOverlay에 필요한 데이터를 설정합니다.
+     */
+    private void updateOverlayData(AnalysisResult result) {
+        if (result == null || areaHighlightOverlay == null) return;
+        
+        // 1. Resilience Data
+        StressStrainPoint yieldPt = getActiveYieldPoint(result);
+        
+        if (yieldPt != null && currentData != null) {
+            double ey = isTrueStressMode ? yieldPt.getTrueStrain() : yieldPt.getEngineeringStrain();
+            double sy = isTrueStressMode ? yieldPt.getTrueStress() : yieldPt.getEngineeringStress();
+            
+            // X절편 계산 (Toe 보정)
+            // E = (sy - intercept) / ey 가 아니라, E값 자체가 기울기임.
+            // y = E*x + intercept  =>  0 = E*x + intercept  =>  x = -intercept / E
+            double E_GPa = isTrueStressMode ? result.getYoungsModulus() : result.getYoungsModulusEng();
+            double intercept = isTrueStressMode ? result.getElasticLineIntercept() : result.getElasticLineInterceptEng();
+            
+            // Fallback
+            if (!isTrueStressMode && E_GPa == 0) {
+                E_GPa = result.getYoungsModulus();
+                intercept = result.getElasticLineIntercept();
+            }
+            
+            double startX = 0.0;
+            if (E_GPa > 0) {
+                startX = -intercept / (E_GPa * 1000.0);
+                // 만약 절편이 너무 이상하면(음수이거나 항복점보다 크면) 0으로 리셋
+                if (startX < -0.05 || startX > ey) startX = 0.0;
+            }
+
+            // Resilience 곡선 데이터 (Integral Mode용)
+            java.util.List<Double> resEps = new java.util.ArrayList<>();
+            java.util.List<Double> resSig = new java.util.ArrayList<>();
+            
+            for(StressStrainPoint p : currentData) {
+                double e = isTrueStressMode ? p.getTrueStrain() : p.getEngineeringStrain();
+                double s = isTrueStressMode ? p.getTrueStress() : p.getEngineeringStress();
+                if (e > ey) break; 
+                resEps.add(e);
+                resSig.add(s);
+            }
+            
+            areaHighlightOverlay.setResilienceData(ey, sy, resEps, resSig, startX);
+        }
+        
+        // 2. Toughness Data
+        if (currentData != null && !currentData.isEmpty()) {
+            java.util.List<Double> eps = new java.util.ArrayList<>();
+            java.util.List<Double> sig = new java.util.ArrayList<>();
+            
+            for(StressStrainPoint p : currentData) {
+                eps.add(isTrueStressMode ? p.getTrueStrain() : p.getEngineeringStrain());
+                sig.add(isTrueStressMode ? p.getTrueStress() : p.getEngineeringStress());
+            }
+            
+            StressStrainPoint fracturePt = result.getFracturePoint(); 
+            if(fracturePt == null) fracturePt = currentData.get(currentData.size()-1);
+            
+            double ef = isTrueStressMode ? fracturePt.getTrueStrain() : fracturePt.getEngineeringStrain();
+            double sf = isTrueStressMode ? fracturePt.getTrueStress() : fracturePt.getEngineeringStress();
+            
+            areaHighlightOverlay.setToughnessCurve(eps, sig, ef, sf);
+        }
+        
+        chartPanel.repaint();
+    }
+    
+    // 현재 설정에 맞는 항복점 반환 (Refactored Helper)
+    private StressStrainPoint getActiveYieldPoint(AnalysisResult result) {
+        if (selectedYieldMode == 0) { // Auto
+            if (result.getYieldType() == YieldType.DISCONTINUOUS) {
+                return result.getUpperYieldPoint();
+            } else {
+                 if (!isTrueStressMode && result.getOffsetYieldPointEng() != null) {
+                    return result.getOffsetYieldPointEng();
+                }
+                return result.getYieldPoint();
+            }
+        } else if (selectedYieldMode == 1) { // Offset
+            if (!isTrueStressMode && result.getOffsetYieldPointEng() != null) {
+                return result.getOffsetYieldPointEng();
+            }
+            return result.getOffsetYieldPoint();
+        } else if (selectedYieldMode == 2) { // Discontinuous
+            return result.getUpperYieldPoint();
+        }
+        return result.getYieldPoint();
+    }
+    
     /**
      * 시각화 옵션 설정 (체크박스 상태 반영)
      */
@@ -179,8 +279,29 @@ public class ChartManager {
         this.showPlasticRegion = showPlastic;
         this.selectedYieldMode = yieldMode;
         
-        setShowSlopeHandle(showSlope); // 오버레이 가시성도 연동
+        setShowSlopeHandle(showSlope); 
+        
+        // [Fix] 모드 변경 시 오버레이 데이터도 갱신 (항복점 위치가 바뀌므로)
+        if (currentResult != null) {
+            updateOverlayData(currentResult);
+        }
+        
         refreshVisuals();
+    }
+    
+    /**
+     * 탄성/인성 영역 표시 여부 설정 (신규)
+     */
+    public void setAreaHighlightOptions(boolean showResilience, boolean showToughness, boolean useResilienceTriangle) {
+        this.showResilience = showResilience;
+        this.showToughness = showToughness;
+        
+        if (areaHighlightOverlay != null) {
+            areaHighlightOverlay.setShowResilienceArea(showResilience);
+            areaHighlightOverlay.setShowToughnessArea(showToughness);
+            areaHighlightOverlay.setResilienceMode(useResilienceTriangle); // 모드 설정 추가
+            chartPanel.repaint();
+        }
     }
 
     /**
@@ -264,6 +385,9 @@ public class ChartManager {
         // 2. 기존 요소 클리어
         plot.clearAnnotations();
         plot.clearDomainMarkers(); // 영역 표시 제거
+        
+        // [Fix] 영역 마커(배경)이 오버레이에 가려지지 않도록 레이어 설정
+        plot.setDomainGridlinesVisible(true);
         
         // 데이터셋 슬롯 1, 2 비우기 (1: 마커, 2: 보조선)
         plot.setDataset(1, null);
@@ -461,20 +585,21 @@ public class ChartManager {
 
             if (showElasticRegion) {
                 IntervalMarker elasticMarker = new IntervalMarker(0.0, yieldStrain);
-                elasticMarker.setPaint(new Color(0, 0, 255, 30)); // 연한 파랑
-                elasticMarker.setLabel("Elastic");
+                elasticMarker.setPaint(new Color(0, 0, 255, 20)); // 매우 연한 파랑 (배경)
+                elasticMarker.setLabel("Elastic Region");
                 elasticMarker.setLabelAnchor(RectangleAnchor.TOP_LEFT);
                 elasticMarker.setLabelTextAnchor(TextAnchor.TOP_LEFT);
-                plot.addDomainMarker(elasticMarker);
+                // Layer.BACKGROUND로 설정하여 오버레이보다 뒤에 깔리게 함
+                plot.addDomainMarker(elasticMarker, org.jfree.chart.ui.Layer.BACKGROUND); 
             }
             
             if (showPlasticRegion) {
                 IntervalMarker plasticMarker = new IntervalMarker(yieldStrain, maxStrain);
-                plasticMarker.setPaint(new Color(255, 0, 0, 30)); // 연한 빨강
-                plasticMarker.setLabel("Plastic");
+                plasticMarker.setPaint(new Color(255, 0, 0, 20)); // 매우 연한 빨강 (배경)
+                plasticMarker.setLabel("Plastic Region");
                 plasticMarker.setLabelAnchor(RectangleAnchor.TOP_RIGHT);
                 plasticMarker.setLabelTextAnchor(TextAnchor.TOP_RIGHT);
-                plot.addDomainMarker(plasticMarker);
+                plot.addDomainMarker(plasticMarker, org.jfree.chart.ui.Layer.BACKGROUND);
             }
         }
     }

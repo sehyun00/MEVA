@@ -43,6 +43,11 @@ public class GraphPanel extends JPanel implements ChartInputHandler.InteractionL
     private JCheckBox elasticRegionCheckBox;
     private JCheckBox plasticRegionCheckBox;
     
+    // 신규 추가: 에너지 시각화 체크박스
+    private JCheckBox resilienceCheckBox;
+    private JCheckBox toughnessCheckBox;
+    private JComboBox<String> resilienceModeComboBox; // 신규 추가: 모드 선택
+    
     // 차트 제어 버튼들
     private JButton zoomInButton;
     private JButton zoomOutButton;
@@ -119,8 +124,23 @@ public class GraphPanel extends JPanel implements ChartInputHandler.InteractionL
         // [Row 2] 영역 표시 및 줌 버튼
         JPanel row2 = new JPanel(new BorderLayout());
         JPanel row2Left = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 5));
-        row2Left.add(elasticRegionCheckBox);
-        row2Left.add(plasticRegionCheckBox);
+        // row2Left.add(elasticRegionCheckBox); // (기존 탄/소성 체크박스 제거 또는 유지)
+        // row2Left.add(plasticRegionCheckBox); 
+        
+        // 에너지 시각화 체크박스 배치
+        JPanel resPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
+        resPanel.add(resilienceCheckBox);
+        resPanel.add(resilienceModeComboBox);
+        resPanel.add(createHelpLabel("탄성 에너지", 
+            "<b>[탄성 에너지 (Resilience)]</b><br>재료가 영구 변형 없이 저장할 수 있는 에너지입니다.<br>" +
+            "- <b>Triangle:</b> 훅의 법칙을 가정한 이론적 값 (삼각형)<br>" +
+            "- <b>Integral:</b> 실제 실험 데이터를 적분한 값 (곡선 아래 면적)"));
+            
+        row2Left.add(resPanel);
+            
+        row2Left.add(toughnessCheckBox);
+        row2Left.add(createHelpLabel("영역 표시 (인성)", 
+            "<b>[영역 표시 (인성)]</b><br>그래프의 전체 면적을 탄성(초록)/소성(주황) 구간으로 나누어 시각화합니다.<br>(전체 면적 = 인성)"));
         
         JPanel row2Right = new JPanel(new FlowLayout(FlowLayout.RIGHT, 5, 5));
         row2Right.add(zoomInButton);
@@ -186,6 +206,22 @@ public class GraphPanel extends JPanel implements ChartInputHandler.InteractionL
 
         plasticRegionCheckBox = new JCheckBox("소성 영역");
         plasticRegionCheckBox.addActionListener(e -> updateVisualization());
+        
+        // 신규 체크박스 및 모드 선택 생성
+        resilienceCheckBox = new JCheckBox("탄성 에너지");
+        resilienceCheckBox.setSelected(true); 
+        resilienceCheckBox.addActionListener(e -> {
+            resilienceModeComboBox.setEnabled(resilienceCheckBox.isSelected());
+            updateVisualization();
+        });
+        
+        resilienceModeComboBox = new JComboBox<>(new String[]{"Triangle (Linear)", "Integral (Actual)"});
+        resilienceModeComboBox.setToolTipText("<html><b>[계산 모드 선택]</b><br>Triangle: Hooke's Law 근사 (삼각형)<br>Integral: 실제 곡선 적분</html>");
+        resilienceModeComboBox.addActionListener(e -> updateVisualization());
+
+        toughnessCheckBox = new JCheckBox("영역 표시 (인성)");
+        toughnessCheckBox.setSelected(true); 
+        toughnessCheckBox.addActionListener(e -> updateVisualization());
         
         // 버튼 생성
         zoomInButton = new JButton("Zoom In");
@@ -275,6 +311,7 @@ public class GraphPanel extends JPanel implements ChartInputHandler.InteractionL
      * ChartManager에게 현재 체크박스 상태를 전달합니다.
      */
     private void updateVisualization() {
+        // 기존 시각화 옵션
         chartManager.setVisualOptions(
             utsCheckBox.isSelected(),
             yieldCheckBox.isSelected(),
@@ -283,6 +320,20 @@ public class GraphPanel extends JPanel implements ChartInputHandler.InteractionL
             plasticRegionCheckBox.isSelected(),
             yieldModeComboBox.getSelectedIndex()
         );
+        
+        // 신규 에너지 시각화 옵션 (모드 추가)
+        boolean useTriangle = (resilienceModeComboBox.getSelectedIndex() == 0);
+        chartManager.setAreaHighlightOptions(
+            resilienceCheckBox.isSelected(),
+            toughnessCheckBox.isSelected(),
+            useTriangle
+        );
+        
+        // [Fix] ResultPanel 수치 업데이트 연동
+        if (resultPanel != null) {
+            boolean isTrueMode = (markerRefComboBox.getSelectedIndex() == 1);
+            resultPanel.updateMode(isTrueMode, useTriangle);
+        }
     }
 
     private void notifyMarkerRefChanged(String command) {

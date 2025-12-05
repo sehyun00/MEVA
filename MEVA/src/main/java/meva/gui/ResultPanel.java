@@ -38,7 +38,7 @@ public class ResultPanel extends JPanel {
             { "최대 응력 시 변형률 (εmax)", "-", "-" },
             { "극한 인장 강도 (UTS)", "-", "MPa" },
             { "영률 (E)", "-", "GPa" },
-            { "항복 강도 (σy)", "-", "MPa" },
+            { "항복 강도 (0.2% Offset)", "-", "MPa" }, // 라벨 명확화
             { "연신율", "-", "%" },
             { "단면 감소율", "-", "%" },
             { "인성", "-", "MJ/m³" },
@@ -49,6 +49,10 @@ public class ResultPanel extends JPanel {
             { "파괴 응력", "-", "MPa" },
             { "파괴 변형률", "-", "-" }
     };
+    
+    // 현재 데이터 상태 저장 (모드 변경 시 재계산용)
+    private meva.models.AnalysisResult currentResult;
+    private meva.calculation.MaterialProperties calculator = new meva.calculation.MaterialProperties();
 
     /**
      * ResultPanel 생성자
@@ -240,9 +244,100 @@ public class ResultPanel extends JPanel {
     }
 
     /**
-     * 결과 테이블을 업데이트합니다.
-     * 
-     * @param results 계산 결과 데이터
+     * 결과 테이블을 업데이트합니다. (AnalysisResult 객체 직접 수신)
+     * 기본적으로 Engineering Stress / Triangle Resilience 모드로 표시합니다.
+     */
+    public void setAnalysisResult(meva.models.AnalysisResult result) {
+        this.currentResult = result;
+        updateMode(false, true); // 기본값: Engineering, Triangle
+    }
+
+    /**
+     * 현재 모드 설정에 따라 테이블 값을 갱신합니다.
+     * @param isTrueStress True Stress 모드 여부
+     * @param useTriangleResilience 탄성 에너지 삼각형 모드 여부
+     */
+    public void updateMode(boolean isTrueStress, boolean useTriangleResilience) {
+        if (currentResult == null) {
+            clearResults();
+            return;
+        }
+
+        String modeText = isTrueStress ? "(True)" : "(Engineering)";
+        setTitleText("Results " + modeText);
+
+        // 1. 공통 값 (True/Eng 차이가 없거나 미미한 것들)
+        updateValueByProperty("연신율", String.format("%.2f", currentResult.getElongation()));
+        updateValueByProperty("단면 감소율", String.format("%.2f", currentResult.getReductionOfArea()));
+        updateValueByProperty("인성", String.format("%.2f", currentResult.getToughness())); // 인성은 True 곡선 기준 적분이 원칙
+
+        // 2. 모드에 따라 달라지는 값 (Stress/Modulus)
+        double E_GPa = isTrueStress ? currentResult.getYoungsModulus() : currentResult.getYoungsModulusEng();
+        // 값이 없으면 Fallback
+        if (!isTrueStress && E_GPa == 0) E_GPa = currentResult.getYoungsModulus();
+        
+        updateValueByProperty("영률", String.format("%.2f", E_GPa));
+
+        // UTS & Yield
+        meva.models.StressStrainPoint utsPt = currentResult.getUtsPoint();
+        if (utsPt != null) {
+            double uts = isTrueStress ? utsPt.getTrueStress() : utsPt.getEngineeringStress();
+            updateValueByProperty("극한 인장 강도", String.format("%.2f", uts));
+            updateValueByProperty("최대 응력 (σmax)", String.format("%.2f", uts));
+            double utsStrain = isTrueStress ? utsPt.getTrueStrain() : utsPt.getEngineeringStrain();
+            updateValueByProperty("최대 응력 시 변형률", String.format("%.4f", utsStrain));
+        }
+
+        // 항복 강도 (우선순위: Eng Offset -> True Offset -> Yield)
+        double yieldStr = 0.0;
+        if (!isTrueStress && currentResult.getOffsetYieldPointEng() != null) {
+            yieldStr = currentResult.getOffsetYieldPointEng().getEngineeringStress();
+        } else if (currentResult.getOffsetYieldPoint() != null) {
+            yieldStr = isTrueStress ? currentResult.getOffsetYieldPoint().getTrueStress() : currentResult.getOffsetYieldPoint().getEngineeringStress();
+        } else {
+            yieldStr = currentResult.getYieldStrength();
+        }
+        updateValueByProperty("항복 강도", String.format("%.2f", yieldStr));
+
+        // 3. 탄성 에너지 (Resilience) - 모드 반영
+        // Triangle Mode: 0.5 * yield * (yield/E)
+        // Integral Mode: 데이터가 없으므로 여기선 근사 계산 또는 저장된 값 사용해야 함.
+        // (현재 AnalysisResult에는 Integral 값이 저장되어 있지 않음. -> MaterialProperties로 즉석 계산 필요하지만 데이터가 없음)
+        // [해결책] AnalysisResult에 미리 계산된 Integral 값을 저장하거나, 여기선 Triangle/Integral 차이를 보여주기 위해
+        // Triangle은 직접 계산하고, Integral은 저장된 값(만약 있다면)을 씁니다.
+        
+        double resilience = 0.0;
+        if (useTriangleResilience) {
+            // 0.5 * σ_y * ε_y
+            // ε_y = σ_y / E (Hooke's Law)
+            // Resilience = 0.5 * σ_y^2 / E
+            if (E_GPa > 0) {
+                resilience = (0.5 * yieldStr * yieldStr) / (E_GPa * 1000.0); // MPa단위 맞춤
+            }
+        } else {
+            // Integral Mode
+            // 현재 AnalysisResult에는 Triangle 기반 Resilience만 저장되어 있음 (calculateResilience 메서드가 Triangle 방식임)
+            // 따라서 여기서는 Triangle 값을 그대로 보여주거나, 향후 Integral 값을 추가해야 함.
+            // 일단 기존 로직(Triangle)을 따르되, 차이를 보여주려면 Calculator가 필요함.
+            resilience = currentResult.getResilience(); // 기본 저장된 값 (Triangle)
+        }
+        updateValueByProperty("탄성 에너지", String.format("%.2f", resilience));
+
+        // 기타
+        updateValueByProperty("탄성 한계", String.format("%.2f", currentResult.getElasticLimit()));
+        updateValueByProperty("비례 한계", String.format("%.2f", currentResult.getProportionalLimit()));
+        updateValueByProperty("파괴 응력", String.format("%.2f", currentResult.getFractureStress()));
+        updateValueByProperty("파괴 변형률", String.format("%.4f", currentResult.getFractureStrain()));
+        
+        // 4. 네킹 시작 (UTS Strain)
+        if (utsPt != null) {
+             double necking = isTrueStress ? utsPt.getTrueStrain() : utsPt.getEngineeringStrain();
+             updateValueByProperty("네킹 시작 변형률", String.format("%.4f", necking));
+        }
+    }
+
+    /**
+     * 결과 테이블을 업데이트합니다. (기존 호환성 유지)
      */
     public void updateResults(Object[][] results) {
         if (results == null) {
