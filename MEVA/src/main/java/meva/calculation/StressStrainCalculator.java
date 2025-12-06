@@ -10,16 +10,13 @@ import java.util.List;
  * 파일에서 읽은 데이터를 기반으로 추가 계산 수행 (필요시)
  * 
  * @author MEVA 개발팀
- * @version 1.0
+ * @version 1.1 (Enhanced)
  */
 public class StressStrainCalculator {
 
     /**
      * DataPoint 리스트를 StressStrainPoint 리스트로 변환
-     * (파일에 이미 True Stress, True Strain이 있으므로 단순 변환)
-     * 
-     * @param dataPoints 원시 데이터 포인트 리스트
-     * @return 응력-변형률 포인트 리스트
+     * (파일에 이미 True Stress, True Strain이 있는 경우 단순 변환)
      */
     public List<StressStrainPoint> convertToStressStrain(List<DataPoint> dataPoints) {
         List<StressStrainPoint> result = new ArrayList<>();
@@ -37,10 +34,89 @@ public class StressStrainCalculator {
     }
 
     /**
-     * 최대 응력 찾기
+     * [New] 원본 데이터(하중, 변위)와 수동 입력 치수(단면적, 표점거리)를 사용하여 스트레스/변형률 재계산
+     * (보정 계수 1.0 사용)
+     */
+    public List<StressStrainPoint> calculateFromRawData(List<DataPoint> dataPoints, double initialArea,
+            double gaugeLength) {
+        return calculateFromRawData(dataPoints, initialArea, gaugeLength, 1.0);
+    }
+
+    /**
+     * [New] 원본 데이터, 수동 입력 치수, 그리고 보정 계수(Load Factor)를 사용하여 재계산
      * 
-     * @param points 응력-변형률 포인트 리스트
-     * @return 최대 True Stress 값
+     * @param loadCorrectionFactor 하중 단위 보정 계수 (예: kN -> N 변환 등 추정치)
+     */
+    public List<StressStrainPoint> calculateFromRawData(List<DataPoint> dataPoints, double initialArea,
+            double gaugeLength, double loadCorrectionFactor) {
+        List<StressStrainPoint> result = new ArrayList<>();
+
+        if (dataPoints == null || initialArea <= 0 || gaugeLength <= 0) {
+            return result;
+        }
+
+        for (DataPoint point : dataPoints) {
+            // Load 보정 적용
+            double correctedLoad = point.getLoad() * loadCorrectionFactor;
+
+            // 1. 공칭 응력/변형률 계산
+            double engStress = correctedLoad / initialArea;
+            double engStrain = point.getDisplacement() / gaugeLength;
+
+            // 2. 진응력/진변형률 계산
+            double trueStrain = 0.0;
+            double trueStress = 0.0;
+
+            if (1 + engStrain > 0) {
+                trueStrain = Math.log(1 + engStrain);
+                trueStress = engStress * (1 + engStrain);
+            }
+
+            result.add(new StressStrainPoint(engStress, engStrain, trueStress, trueStrain));
+        }
+
+        return result;
+    }
+
+    /**
+     * [New] 파일 원본 Stress 값과 (Load / UserArea) 값을 비교하여 보정 계수를 역산함.
+     * 이를 통해 Load Unit이 N이 아니더라도 원본 Stress 스케일에 맞춰줌.
+     */
+    public double calculateCorrectionFactor(List<DataPoint> rawData, List<StressStrainPoint> filePoints,
+            double userArea) {
+        if (rawData == null || filePoints == null || rawData.size() != filePoints.size() || userArea <= 0) {
+            return 1.0;
+        }
+
+        double sumRatio = 0.0;
+        int count = 0;
+
+        // 전체 데이터를 다 돌면 노이즈나 0 부근에서 오차가 커지므로,
+        // 응력이 어느 정도 발생하는 구간(중간 50%)만 샘플링
+        int start = rawData.size() / 4;
+        int end = rawData.size() * 3 / 4;
+
+        for (int i = start; i < end; i++) {
+            double load = rawData.get(i).getLoad();
+            // 파일 내 Engineering Stress (정답 데이터)
+            double targetStress = filePoints.get(i).getEngineeringStress();
+
+            if (Math.abs(load) > 1.0 && Math.abs(targetStress) > 1.0) {
+                // targetStress = (load * Factor) / userArea
+                // Factor = (targetStress * userArea) / load
+                double factor = (targetStress * userArea) / load;
+                sumRatio += factor;
+                count++;
+            }
+        }
+
+        if (count == 0)
+            return 1.0;
+        return sumRatio / count;
+    }
+
+    /**
+     * 최대 응력 찾기
      */
     public double findMaxStress(List<StressStrainPoint> points) {
         return points.stream()
@@ -51,9 +127,6 @@ public class StressStrainCalculator {
 
     /**
      * 최대 응력에서의 변형률 찾기
-     * 
-     * @param points 응력-변형률 포인트 리스트
-     * @return 최대 응력에서의 True Strain 값
      */
     public double findStrainAtMaxStress(List<StressStrainPoint> points) {
         double maxStress = findMaxStress(points);
@@ -66,10 +139,6 @@ public class StressStrainCalculator {
 
     /**
      * 이동 평균 필터를 사용하여 데이터 스무딩
-     * 
-     * @param data       원본 데이터
-     * @param windowSize 윈도우 크기 (홀수 권장, 예: 5, 11, 21)
-     * @return 스무딩된 데이터
      */
     public List<StressStrainPoint> smoothData(List<StressStrainPoint> data, int windowSize) {
         if (data == null || data.isEmpty() || windowSize <= 1) {
@@ -84,11 +153,9 @@ public class StressStrainCalculator {
             double sumTStress = 0, sumTStrain = 0;
             int count = 0;
 
-            // 윈도우 범위 설정
             int start = Math.max(0, i - halfWindow);
             int end = Math.min(data.size(), i + halfWindow + 1);
 
-            // 평균 계산
             for (int j = start; j < end; j++) {
                 StressStrainPoint p = data.get(j);
                 sumEStress += p.getEngineeringStress();
@@ -98,7 +165,6 @@ public class StressStrainCalculator {
                 count++;
             }
 
-            // 평균값으로 새 포인트 생성
             smoothed.add(new StressStrainPoint(
                     sumEStress / count,
                     sumEStrain / count,
@@ -110,68 +176,42 @@ public class StressStrainCalculator {
     }
 
     /**
-     * 데이터 다운샘플링 (N개마다 1개 선택)
-     * 
-     * @param data   원본 데이터
-     * @param factor 샘플링 비율 (예: 10이면 10개마다 1개)
-     * @return 다운샘플링된 데이터
+     * 데이터 다운샘플링
      */
     public List<StressStrainPoint> downsample(List<StressStrainPoint> data, int factor) {
         if (data == null || data.isEmpty() || factor <= 1) {
             return data;
         }
-
         List<StressStrainPoint> result = new ArrayList<>();
-
         for (int i = 0; i < data.size(); i += factor) {
             result.add(data.get(i));
         }
-
         return result;
     }
 
     /**
      * 음수 응력 데이터 제거
-     * 시험 초기 압축 구간 제거
-     * 
-     * @param data 원본 데이터
-     * @return 음수 응력이 제거된 데이터
      */
     public List<StressStrainPoint> removeNegativeStress(List<StressStrainPoint> data) {
-        if (data == null || data.isEmpty()) {
+        if (data == null || data.isEmpty())
             return data;
-        }
 
         List<StressStrainPoint> filtered = new ArrayList<>();
-
         for (StressStrainPoint point : data) {
-            // True Stress와 Engineering Stress 둘 다 양수인 것만
             if (point.getTrueStress() > 0 && point.getEngineeringStress() > 0) {
                 filtered.add(point);
             }
         }
-
-        System.out.println("음수 응력 제거: " + (data.size() - filtered.size()) + "개 포인트 제거됨");
-
         return filtered;
     }
 
     /**
      * 파단 후 데이터 제거
-     * 최대 응력 이후 급격히 감소하는 구간 제거
-     * 
-     * @param data          원본 데이터
-     * @param dropThreshold 응력 감소 임계값 (예: 0.5 = 50% 감소)
-     * @return 파단 후 데이터가 제거된 데이터
      */
-    public List<StressStrainPoint> removePostFractureData(
-            List<StressStrainPoint> data, double dropThreshold) {
-
-        if (data == null || data.isEmpty()) {
+    public List<StressStrainPoint> removePostFractureData(List<StressStrainPoint> data, double dropThreshold) {
+        if (data == null || data.isEmpty())
             return data;
-        }
 
-        // 1. 최대 응력 찾기
         double maxStress = findMaxStress(data);
         int maxStressIndex = -1;
 
@@ -182,11 +222,9 @@ public class StressStrainCalculator {
             }
         }
 
-        if (maxStressIndex == -1) {
+        if (maxStressIndex == -1)
             return data;
-        }
 
-        // 2. 최대 응력 이후 급격한 감소 지점 찾기
         List<StressStrainPoint> filtered = new ArrayList<>();
         double thresholdStress = maxStress * dropThreshold;
 
@@ -194,128 +232,40 @@ public class StressStrainCalculator {
             filtered.add(data.get(i));
         }
 
-        // 최대 응력 이후는 임계값 이상인 것만 추가
         for (int i = maxStressIndex + 1; i < data.size(); i++) {
-            double currentStress = data.get(i).getTrueStress();
-
-            // 임계값 이상이면 추가
-            if (currentStress >= thresholdStress) {
+            if (data.get(i).getTrueStress() >= thresholdStress) {
                 filtered.add(data.get(i));
             } else {
-                // 한 번 임계값 아래로 떨어지면 종료
-                System.out.println("파단 후 데이터 제거: " + (data.size() - i) + "개 포인트 제거됨");
                 break;
             }
         }
-
         return filtered;
     }
 
     /**
      * 포괄적인 데이터 클리닝
-     * 음수 응력 제거 + 파단 후 데이터 제거
-     * 
-     * @param data 원본 데이터
-     * @return 클리닝된 데이터
      */
     public List<StressStrainPoint> cleanData(List<StressStrainPoint> data) {
-        if (data == null || data.isEmpty()) {
+        if (data == null || data.isEmpty())
             return data;
-        }
-
-        System.out.println("=== 데이터 클리닝 시작 ===");
-        System.out.println("원본 데이터 포인트: " + data.size());
-
-        // 1. 음수 응력 제거
         List<StressStrainPoint> cleaned = removeNegativeStress(data);
-        System.out.println("음수 제거 후: " + cleaned.size() + "개");
-
-        // 2. 파단 후 데이터 제거 (최대 응력의 50% 이하로 떨어지면 제거)
         cleaned = removePostFractureData(cleaned, 0.5);
-        System.out.println("파단 후 제거 후: " + cleaned.size() + "개");
-
-        System.out.println("=== 데이터 클리닝 완료 ===");
-        System.out.println("총 " + (data.size() - cleaned.size()) + "개 포인트 제거됨\n");
-
         return cleaned;
     }
 
     /**
-     * 더 정교한 파단 검출 (선택사항)
-     * 연속된 감소를 기준으로 파단 지점 탐지
-     * 
-     * @param data             원본 데이터
-     * @param consecutiveDrops 연속 감소 횟수 (예: 10)
-     * @return 파단 전 데이터
-     */
-    public List<StressStrainPoint> removePostFractureAdvanced(
-            List<StressStrainPoint> data, int consecutiveDrops) {
-
-        if (data == null || data.isEmpty() || data.size() < consecutiveDrops) {
-            return data;
-        }
-
-        // 최대 응력 찾기
-        double maxStress = findMaxStress(data);
-        int maxStressIndex = -1;
-
-        for (int i = 0; i < data.size(); i++) {
-            if (Math.abs(data.get(i).getTrueStress() - maxStress) < 0.01) {
-                maxStressIndex = i;
-                break;
-            }
-        }
-
-        if (maxStressIndex == -1 || maxStressIndex >= data.size() - consecutiveDrops) {
-            return data;
-        }
-
-        // 최대 응력 이후 연속 감소 감지
-        int dropCount = 0;
-        int fractureIndex = data.size();
-
-        for (int i = maxStressIndex + 1; i < data.size(); i++) {
-            double prevStress = data.get(i - 1).getTrueStress();
-            double currStress = data.get(i).getTrueStress();
-
-            if (currStress < prevStress) {
-                dropCount++;
-                if (dropCount >= consecutiveDrops) {
-                    fractureIndex = i - consecutiveDrops + 1;
-                    System.out.println("파단 지점 감지 (index: " + fractureIndex + ")");
-                    break;
-                }
-            } else {
-                dropCount = 0; // 리셋
-            }
-        }
-
-        List<StressStrainPoint> filtered = new ArrayList<>();
-        for (int i = 0; i < fractureIndex; i++) {
-            filtered.add(data.get(i));
-        }
-
-        System.out.println("고급 파단 제거: " + (data.size() - filtered.size()) + "개 포인트 제거됨");
-
-        return filtered;
-    }
-
-    /**
-     * 데이터의 시작점을 (0,0)으로 강제 이동시키는 메서드 추가
+     * 데이터의 시작점을 (0,0)으로 강제 이동
      */
     public List<StressStrainPoint> applyZeroOffset(List<StressStrainPoint> points) {
-        if (points == null || points.isEmpty()) {
+        if (points == null || points.isEmpty())
             return points;
-        }
 
-        // 1. 응력이 상승하기 시작하는 '진짜 시작점' 찾기
-        // (초기 노이즈를 건너뛰기 위해 응력이 5MPa 이상인 첫 지점을 찾음)
         double startStrain = 0.0;
         double startStress = 0.0;
         boolean foundStart = false;
 
         for (StressStrainPoint p : points) {
-            if (p.getTrueStress() > 5.0) { // [Fix] Strain -> Stress로 수정 (5 MPa 이상)
+            if (p.getTrueStress() > 5.0) {
                 startStrain = p.getTrueStrain();
                 startStress = p.getTrueStress();
                 foundStart = true;
@@ -323,30 +273,28 @@ public class StressStrainCalculator {
             }
         }
 
-        // 시작점을 못 찾았으면(데이터가 너무 작음) 그냥 첫 포인트 기준
         if (!foundStart) {
             startStrain = points.get(0).getTrueStrain();
             startStress = points.get(0).getTrueStress();
         }
 
-        // 2. 모든 포인트를 시작점만큼 뺌 (Shift)
         List<StressStrainPoint> correctedPoints = new ArrayList<>();
-        // 공칭 변형률의 시작점도 파악해야 정확하지만, 여기서는 편의상 True Strain과 동일한 시점에서 0으로 맞춤
-        // 해당 시점의 Eng Strain 찾기
         double startEngStrain = 0.0;
-        for(StressStrainPoint p : points) {
-            if(Math.abs(p.getTrueStrain() - startStrain) < 0.00001) {
+
+        for (StressStrainPoint p : points) {
+            if (Math.abs(p.getTrueStrain() - startStrain) < 0.00001) {
                 startEngStrain = p.getEngineeringStrain();
                 break;
             }
         }
 
         for (StressStrainPoint p : points) {
-            // 시작점 이전의 데이터는 버림 (음수 되니까)
             if (p.getTrueStrain() >= startStrain) {
                 double newTrueStrain = p.getTrueStrain() - startStrain;
-                double newTrueStress = p.getTrueStress();
-                
+                double newTrueStress = p.getTrueStress(); // Stress는 보통 0으로 안 맞춤 (초기 하중 있으므로) -> 요구사항 따라 확인 필요
+                // 여기서는 Stress Shift는 안 함 (Load Zeroing은 실험기가 했을 거라 가정)
+                // 만약 Stress도 0으로 맞추려면: newTrueStress = p.getTrueStress() - startStress;
+
                 double newEngStrain = p.getEngineeringStrain() - startEngStrain;
                 double newEngStress = p.getEngineeringStress();
 
@@ -354,12 +302,9 @@ public class StressStrainCalculator {
                         newEngStress,
                         newEngStrain,
                         newTrueStress,
-                        newTrueStrain
-                ));
+                        newTrueStrain));
             }
         }
-
         return correctedPoints;
     }
-
 }

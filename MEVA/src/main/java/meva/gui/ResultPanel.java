@@ -12,6 +12,7 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import meva.education.GlossaryManager;
 
 /**
  * 계산 결과를 표시하는 패널
@@ -23,11 +24,11 @@ import java.util.Date;
 public class ResultPanel extends JPanel {
 
     // 결과 테이블 및 관련 컴포넌트
-    private JTable resultsTable;        // 계산 결과를 표시하는 표 컴포넌트
+    private JTable resultsTable; // 계산 결과를 표시하는 표 컴포넌트
     private DefaultTableModel tableModel; // 테이블의 데이터 모델 (행/열 관리)
-    private JScrollPane scrollPane;     // 테이블에 스크롤 기능을 제공하는 컨테이너
-    private JButton saveButton;         // 결과를 CSV 파일로 저장하는 버튼
-    private JLabel titleLabel;          // 패널 제목 레이블 (동적 변경용)
+    private JScrollPane scrollPane; // 테이블에 스크롤 기능을 제공하는 컨테이너
+    private JButton saveButton; // 결과를 CSV 파일로 저장하는 버튼
+    private JLabel titleLabel; // 패널 제목 레이블 (동적 변경용)
     // 외부 리스너
     private ActionListener saveButtonListener;
 
@@ -49,7 +50,7 @@ public class ResultPanel extends JPanel {
             { "파괴 응력", "-", "MPa" },
             { "파괴 변형률", "-", "-" }
     };
-    
+
     // 현재 데이터 상태 저장 (모드 변경 시 재계산용)
     private meva.models.AnalysisResult currentResult;
     private meva.calculation.MaterialProperties calculator = new meva.calculation.MaterialProperties();
@@ -76,9 +77,26 @@ public class ResultPanel extends JPanel {
         };
 
         // 테이블 생성 및 설정
-        resultsTable = new JTable(tableModel);
+        // 테이블 생성 및 설정 (툴팁 기능 추가를 위해 익명 클래스 사용)
+        resultsTable = new JTable(tableModel) {
+            @Override
+            public String getToolTipText(java.awt.event.MouseEvent e) {
+                java.awt.Point p = e.getPoint();
+                int rowIndex = rowAtPoint(p);
+                int colIndex = columnAtPoint(p);
+
+                // 첫 번째 열(속성명)에 마우스가 있을 때만 툴팁 표시
+                if (rowIndex >= 0 && colIndex == 0) {
+                    Object value = getValueAt(rowIndex, 0);
+                    if (value != null) {
+                        return GlossaryManager.getDefinition(value.toString());
+                    }
+                }
+                return super.getToolTipText(e);
+            }
+        };
         resultsTable.setRowHeight(25);
-        resultsTable.setFont(new Font("Malgun Gothic", Font.PLAIN, 12)); 
+        resultsTable.setFont(new Font("Malgun Gothic", Font.PLAIN, 12));
         resultsTable.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
 
         // 테이블 헤더 설정
@@ -262,9 +280,10 @@ public class ResultPanel extends JPanel {
 
     /**
      * 현재 모드 설정에 따라 테이블 값을 갱신합니다.
-     * @param isTrueStress True Stress 모드 여부
+     * 
+     * @param isTrueStress          True Stress 모드 여부
      * @param useTriangleResilience 탄성 에너지 삼각형 모드 여부
-     * @param yieldMode 선택된 항복점 모드 (0:Auto, 1:Offset, 2:Upper/Lower)
+     * @param yieldMode             선택된 항복점 모드 (0:Auto, 1:Offset, 2:Upper/Lower)
      */
     public void updateMode(boolean isTrueStress, boolean useTriangleResilience, int yieldMode) {
         if (currentResult == null) {
@@ -282,16 +301,17 @@ public class ResultPanel extends JPanel {
 
         // 2. 모드에 따라 달라지는 값 (Stress/Modulus)
         double E_GPa = isTrueStress ? currentResult.getYoungsModulus() : currentResult.getYoungsModulusEng();
-        if (!isTrueStress && E_GPa == 0) E_GPa = currentResult.getYoungsModulus();
-        
-        updateValueByProperty("영률", String.format("%.2f", E_GPa));
+        if (!isTrueStress && E_GPa == 0)
+            E_GPa = currentResult.getYoungsModulus();
+
+        updateValueByProperty("영률", String.format("%.3f", E_GPa));
 
         // UTS
         meva.models.StressStrainPoint utsPt = currentResult.getUtsPoint();
         if (utsPt != null) {
             double uts = isTrueStress ? utsPt.getTrueStress() : utsPt.getEngineeringStress();
-            updateValueByProperty("극한 인장 강도", String.format("%.2f", uts));
-            updateValueByProperty("최대 응력 (σmax)", String.format("%.2f", uts));
+            updateValueByProperty("극한 인장 강도", String.format("%.3f", uts));
+            updateValueByProperty("최대 응력 (σmax)", String.format("%.3f", uts));
             double utsStrain = isTrueStress ? utsPt.getTrueStrain() : utsPt.getEngineeringStrain();
             updateValueByProperty("최대 응력 시 변형률", String.format("%.4f", utsStrain));
         }
@@ -303,33 +323,37 @@ public class ResultPanel extends JPanel {
         if (yieldMode == 2) { // Upper/Lower 강제
             isDiscontinuousMode = true;
             if (currentResult.getUpperYieldPoint() != null) {
-                yieldStr = isTrueStress ? currentResult.getUpperYieldPoint().getTrueStress() : currentResult.getUpperYieldPoint().getEngineeringStress();
+                yieldStr = isTrueStress ? currentResult.getUpperYieldPoint().getTrueStress()
+                        : currentResult.getUpperYieldPoint().getEngineeringStress();
             }
         } else if (yieldMode == 1) { // Offset 강제
             if (!isTrueStress && currentResult.getOffsetYieldPointEng() != null) {
                 yieldStr = currentResult.getOffsetYieldPointEng().getEngineeringStress();
             } else if (currentResult.getOffsetYieldPoint() != null) {
-                yieldStr = isTrueStress ? currentResult.getOffsetYieldPoint().getTrueStress() : currentResult.getOffsetYieldPoint().getEngineeringStress();
+                yieldStr = isTrueStress ? currentResult.getOffsetYieldPoint().getTrueStress()
+                        : currentResult.getOffsetYieldPoint().getEngineeringStress();
             }
         } else { // Auto (0)
             // Auto 모드에서는 AnalysisResult의 yieldType을 따름
             if (currentResult.getYieldType() == meva.models.AnalysisResult.YieldType.DISCONTINUOUS) {
                 isDiscontinuousMode = true;
                 if (currentResult.getUpperYieldPoint() != null) {
-                    yieldStr = isTrueStress ? currentResult.getUpperYieldPoint().getTrueStress() : currentResult.getUpperYieldPoint().getEngineeringStress();
+                    yieldStr = isTrueStress ? currentResult.getUpperYieldPoint().getTrueStress()
+                            : currentResult.getUpperYieldPoint().getEngineeringStress();
                 }
             } else {
                 // Offset Point 우선
                 if (!isTrueStress && currentResult.getOffsetYieldPointEng() != null) {
                     yieldStr = currentResult.getOffsetYieldPointEng().getEngineeringStress();
                 } else if (currentResult.getOffsetYieldPoint() != null) {
-                    yieldStr = isTrueStress ? currentResult.getOffsetYieldPoint().getTrueStress() : currentResult.getOffsetYieldPoint().getEngineeringStress();
+                    yieldStr = isTrueStress ? currentResult.getOffsetYieldPoint().getTrueStress()
+                            : currentResult.getOffsetYieldPoint().getEngineeringStress();
                 } else {
                     yieldStr = currentResult.getYieldStrength(); // Fallback
                 }
             }
         }
-        updateValueByProperty("항복 강도", String.format("%.2f", yieldStr));
+        updateValueByProperty("항복 강도", String.format("%.3f", yieldStr));
 
         // 3. 탄성 에너지 (Resilience) - 모드 반영
         double resilience = 0.0;
@@ -350,15 +374,15 @@ public class ResultPanel extends JPanel {
         updateValueByProperty("레질리언스 계수", String.format("%.3f", resilience));
 
         // 기타
-        updateValueByProperty("탄성 한계", String.format("%.2f", currentResult.getElasticLimit()));
-        updateValueByProperty("비례 한계", String.format("%.2f", currentResult.getProportionalLimit()));
-        updateValueByProperty("파괴 응력", String.format("%.2f", currentResult.getFractureStress()));
+        updateValueByProperty("탄성 한계", String.format("%.3f", currentResult.getElasticLimit()));
+        updateValueByProperty("비례 한계", String.format("%.3f", currentResult.getProportionalLimit()));
+        updateValueByProperty("파괴 응력", String.format("%.3f", currentResult.getFractureStress()));
         updateValueByProperty("파괴 변형률", String.format("%.4f", currentResult.getFractureStrain()));
-        
+
         // 4. 네킹 시작 (UTS Strain)
         if (utsPt != null) {
-             double necking = isTrueStress ? utsPt.getTrueStrain() : utsPt.getEngineeringStrain();
-             updateValueByProperty("네킹 시작 변형률", String.format("%.4f", necking));
+            double necking = isTrueStress ? utsPt.getTrueStrain() : utsPt.getEngineeringStrain();
+            updateValueByProperty("네킹 시작 변형률", String.format("%.4f", necking));
         }
     }
 
@@ -443,9 +467,10 @@ public class ResultPanel extends JPanel {
             try {
                 // 임시로 다중 선택 모드로 변경 (여러 행 동시 강조를 위해)
                 int originalMode = resultsTable.getSelectionModel().getSelectionMode();
-                SwingUtilities.invokeLater(() -> resultsTable.setSelectionMode(ListSelectionModel.MULTIPLE_INTERVAL_SELECTION));
+                SwingUtilities.invokeLater(
+                        () -> resultsTable.setSelectionMode(ListSelectionModel.MULTIPLE_INTERVAL_SELECTION));
 
-                for(int i=0; i<3; i++) {
+                for (int i = 0; i < 3; i++) {
                     SwingUtilities.invokeAndWait(() -> {
                         resultsTable.clearSelection();
                         for (int row : rowIndices) {
@@ -455,14 +480,14 @@ public class ResultPanel extends JPanel {
                         }
                     });
                     Thread.sleep(150);
-                    
+
                     SwingUtilities.invokeAndWait(() -> resultsTable.clearSelection());
                     Thread.sleep(150);
                 }
-                
+
                 // 선택 모드 복구
                 SwingUtilities.invokeLater(() -> resultsTable.setSelectionMode(originalMode));
-                
+
             } catch (Exception e) {
                 e.printStackTrace();
             }
@@ -480,6 +505,7 @@ public class ResultPanel extends JPanel {
 
     /**
      * 패널의 제목 텍스트를 변경합니다.
+     * 
      * @param text 새로운 제목
      */
     public void setTitleText(String text) {

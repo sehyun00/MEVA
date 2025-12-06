@@ -1,3 +1,5 @@
+// src/main/java/meva/gui/MainFrame.java
+
 package meva.gui;
 
 import javax.swing.*;
@@ -24,25 +26,28 @@ import meva.calculation.MaterialProperties;
  */
 public class MainFrame extends JFrame {
     // UI 컴포넌트
-    private MenuBar menuBar;              // 상단 메뉴바 (File, Edit, View 등)
-    private JToolBar toolBar;             // 자주 사용하는 기능을 아이콘으로 제공하는 툴바
-    private JPanel mainPanel;             // 전체 레이아웃을 담는 메인 컨테이너
-    private InputPanel inputPanel;        // 좌측: 사용자 입력 패널
+    private MenuBar menuBar; // 상단 메뉴바 (File, Edit, View 등)
+    private JToolBar toolBar; // 자주 사용하는 기능을 아이콘으로 제공하는 툴바
+    private JPanel mainPanel; // 전체 레이아웃을 담는 메인 컨테이너
+    private InputPanel inputPanel; // 좌측: 사용자 입력 패널
     private GraphPanel visualizationPanel; // 중앙: 그래프 시각화 패널
-    private ResultPanel resultsPanel;     // 우측: 계산 결과 패널
-    private JPanel statusBar;             // 하단: 상태 메시지 및 진행률 표시줄
-    
+    private ResultPanel resultsPanel; // 우측: 계산 결과 패널
+    private JPanel statusBar; // 하단: 상태 메시지 및 진행률 표시줄
+
     // 상태바 컴포넌트
-    private JLabel statusLabel;   // 현재 작업 상태 텍스트 표시
+    private JLabel statusLabel; // 현재 작업 상태 텍스트 표시
     private JProgressBar progressBar; // 긴 작업(계산 등) 진행률 표시
-    private JLabel timeLabel;     // 현재 시간 표시
+    private JLabel timeLabel; // 현재 시간 표시
 
     // 현재 실험 ID (저장된 실험 추적용)
     private int currentExperimentId = -1;
-    
+
     // 현재 분석 결과 데이터 (재사용용)
     private AnalysisResult currentAnalysisResult;
+
     private boolean isManualCalculation = false; // 수동 보정 여부 추적
+    private List<DataPoint> currentRawData; // [New] 원본 데이터 캐싱 (재계산용)
+    private double loadCorrectionFactor = 1.0; // [New] 하중 단위 자동 보정 계수
 
     /**
      * MainFrame 생성자
@@ -134,7 +139,7 @@ public class MainFrame extends JFrame {
      * InputPanel 이벤트 리스너 설정
      */
     private void setupInputPanelListeners() {
-        inputPanel.setCalculateListener(e -> onCalculateClicked());
+        inputPanel.setCalculateListener(this::onCalculateClicked);
         inputPanel.setResetListener(e -> onResetClicked());
         inputPanel.setClearGraphListener(e -> onClearGraphClicked());
         inputPanel.setPresetChangedListener(e -> onPresetChanged());
@@ -150,14 +155,14 @@ public class MainFrame extends JFrame {
         visualizationPanel.setZoomOutListener(e -> onZoomOut());
         visualizationPanel.setResetZoomListener(e -> onResetZoom());
         visualizationPanel.setExportChartListener(e -> onExportChart());
-        
+
         // 마커 기준 변경 또는 수동 재계산 시 결과 패널 업데이트
         visualizationPanel.setMarkerRefChangedListener(e -> {
             if ("RECALCULATED".equals(e.getActionCommand())) {
                 // 수동 재계산인 경우
                 isManualCalculation = true;
                 updateStatus("Manual recalculation completed");
-            } 
+            }
             // 일반적인 변경은 GraphPanel 내부에서 ResultPanel.updateMode()를 통해 처리됨
         });
     }
@@ -249,7 +254,7 @@ public class MainFrame extends JFrame {
         // 의도: 기존 BorderLayout 고정 배치 대신, 사용자가 각 패널(입력, 그래프, 결과)의
         // 너비를 작업 환경에 맞춰 유동적으로 조절할 수 있도록 JSplitPane 구조 도입
         mainPanel.add(createSplitPaneLayout(), BorderLayout.CENTER);
-        
+
         add(mainPanel, BorderLayout.CENTER);
 
         // StatusBar 추가 (SOUTH)
@@ -294,12 +299,12 @@ public class MainFrame extends JFrame {
         setTitle("MEVA - Materials Engineering Visualization and Analysis");
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setSize(1600, 900);
-        
+
         // 최소 크기 설정 (각 패널의 최소 너비 합계 고려)
         // Input(280) + Graph(800) + Result(300) + Dividers/Borders ≈ 1400
         // 의도: 사용자가 설정한 각 패널의 최소 너비를 보장하기 위해 프레임 전체의 최소 크기를 제한함
         setMinimumSize(new Dimension(1400, 768));
-        
+
         setLocationRelativeTo(null);
     }
 
@@ -368,7 +373,7 @@ public class MainFrame extends JFrame {
     }
 
     private void onCalculate() {
-        onCalculateClicked();
+        onCalculateClicked(null);
     }
 
     private void onClearData() {
@@ -392,9 +397,21 @@ public class MainFrame extends JFrame {
                 JOptionPane.INFORMATION_MESSAGE);
     }
 
-    private void onCalculateClicked() {
+    private void onCalculateClicked(java.awt.event.ActionEvent event) {
         // 1. 파일 경로 확인
         String filePath = inputPanel.getSelectedFilePath();
+
+        // [New] 재계산 여부 확인
+        boolean isRecalculate = false;
+        if (event != null && event.getSource() instanceof JButton) {
+            String btnText = ((JButton) event.getSource()).getText();
+            if (btnText != null && (btnText.contains("Update") || btnText.contains("Recalculate"))) {
+                isRecalculate = true;
+            }
+        }
+
+        // 재계산 요청이 들어왔으나 캐시된 데이터가 없으면 경고 후 일반 모드(파일 로드)로 전환 시도
+        // 하지만 파일 경로가 없으면 에러
         if (filePath == null || filePath.isEmpty()) {
             JOptionPane.showMessageDialog(this,
                     "먼저 데이터 파일을 선택해주세요.",
@@ -403,57 +420,77 @@ public class MainFrame extends JFrame {
             return;
         }
 
-        updateStatus("파일 읽는 중...");
+        updateStatus(isRecalculate ? "재계산 중..." : "파일 읽는 중...");
         progressBar.setVisible(true);
         progressBar.setIndeterminate(true);
-        isManualCalculation = false; // 새로운 계산 시 수동 모드 초기화
+        isManualCalculation = isRecalculate; // 재계산은 일종의 수동 조작
 
         // 백그라운드 스레드에서 처리
+        boolean finalIsRecalculate = isRecalculate;
         SwingWorker<Void, Void> worker = new SwingWorker<Void, Void>() {
             private List<StressStrainPoint> stressStrainData;
             private String errorMessage;
-            private AnalysisResult analysisResult; // 분석 결과 객체
+            private AnalysisResult analysisResult;
 
             @Override
             protected Void doInBackground() throws Exception {
                 try {
-                    // 1. 파일 파싱
-                    TxtDataParser parser = new TxtDataParser();
-                    List<DataPoint> rawData = parser.parseFile(filePath);
-                    System.out.println("원본 데이터 포인트: " + rawData.size());
+                    List<DataPoint> rawData;
+                    StressStrainCalculator calculator = new StressStrainCalculator();
+
+                    // 1. 데이터 준비 (캐시 사용 또는 파일 로드)
+                    if (finalIsRecalculate && currentRawData != null) {
+                        rawData = currentRawData;
+                        System.out.println("캐시된 원본 데이터 사용: " + rawData.size());
+                    } else {
+                        TxtDataParser parser = new TxtDataParser();
+                        rawData = parser.parseFile(filePath);
+                        currentRawData = rawData; // [New] 캐싱
+                        System.out.println("파일에서 원본 데이터 로드: " + rawData.size());
+                    }
 
                     // 2. 응력-변형률 변환
-                    StressStrainCalculator calculator = new StressStrainCalculator();
-                    List<StressStrainPoint> convertedData = calculator.convertToStressStrain(rawData);
+                    // [New] 만약 재계산(Recalculate)이거나, 초기 직경/게이지 길이가 기본값과 다르면 수동 계산 시도
+                    double userArea = inputPanel.getInitialCrossSection();
+                    double userLength = inputPanel.getGaugeLength();
 
-                    // 3. 데이터 클리닝 (음수 제거 + 파단 후 제거)
+                    List<StressStrainPoint> convertedData;
+
+                    // 재계산 버튼을 명시적으로 눌렀을 때만 보정된 계산 수행
+                    // 최초 로딩 시에는 파일 내의 Stress 값을 우선 사용하고, 추후를 위해 Factor를 계산해둠
+                    if (finalIsRecalculate) {
+                        System.out.println("사용자 입력 치수 및 보정 계수로 재계산 수행 (Area: "
+                                + String.format("%.2f", userArea) + ", LoadFactor: "
+                                + String.format("%.2f", loadCorrectionFactor) + ")");
+                        convertedData = calculator.calculateFromRawData(rawData, userArea, userLength,
+                                loadCorrectionFactor);
+                    } else {
+                        // 최초 로드: 파일 내 Stress 데이터 사용 (정확도 보장)
+                        convertedData = calculator.convertToStressStrain(rawData);
+
+                        // [Auto-Correction] 파일의 Stress 값과 사용자가 입력한(또는 기본값) Area 기반의 Load 값을 비교하여
+                        // 향후 재계산에 사용할 Load Unit Correction Factor를 계산해둠.
+                        if (userArea > 0) {
+                            loadCorrectionFactor = calculator.calculateCorrectionFactor(rawData, convertedData,
+                                    userArea);
+                            System.out.println("Load Correction Factor 계산됨: " + loadCorrectionFactor);
+                        }
+                    }
+
+                    // 3. 데이터 클리닝
                     convertedData = calculator.cleanData(convertedData);
-                    convertedData = calculator.applyZeroOffset(convertedData); 
+                    convertedData = calculator.applyZeroOffset(convertedData);
 
-                    // 4. 노이즈 제거 (스무딩)
+                    // 4. 노이즈 제거
                     int windowSize = 20;
-                    convertedData = calculator.smoothData(convertedData, windowSize);
-                    System.out.println("스무딩 완료 (window size: " + windowSize + ")");
+                    convertedData = calculator.smoothData(convertedData, windowSize); // Method name corrected if it was
+                                                                                      // different
 
-                    // ⭐ 필드에 할당 (done()에서 사용)
                     this.stressStrainData = convertedData;
 
-                    // 5. 통합 재료 물성 분석 수행 (MaterialProperties.analyze)
+                    // 5. 물성 분석
                     MaterialProperties materialProps = new MaterialProperties();
-                    // analyze 메서드 내부에서 UTS, Yield 등 모든 물성을 한 번에 계산
                     this.analysisResult = materialProps.analyze(stressStrainData);
-
-                    System.out.println("\n=== 분석 완료 ===");
-                    System.out.println("UTS Point: " + (analysisResult.getUtsPoint() != null ? "Found" : "Not Found"));
-                    System.out.println("Yield Point: " + (analysisResult.getYieldPoint() != null ? "Found" : "Not Found"));
-
-                    // 6. DB에 실험 데이터 저장
-                    // UTS와 그 시점의 변형률(Engineering Strain)을 저장
-                    if (analysisResult.getUtsPoint() != null) {
-                        saveExperimentToDatabase(filePath, 
-                            analysisResult.getTensileStrength(), 
-                            analysisResult.getUtsPoint().getEngineeringStrain());
-                    }
 
                 } catch (IOException e) {
                     errorMessage = "파일 읽기 실패: " + e.getMessage();
@@ -478,16 +515,17 @@ public class MainFrame extends JFrame {
                     return;
                 }
 
-                // 4. 그래프에 데이터 및 분석 결과 표시
                 visualizationPanel.plotStressStrainCurve(stressStrainData);
-                visualizationPanel.setAnalysisResult(analysisResult); // ⭐ 마커 표시를 위해 필수
-
-                // 메인 프레임의 현재 분석 결과 업데이트
+                visualizationPanel.setAnalysisResult(analysisResult);
                 currentAnalysisResult = analysisResult;
-                
-                // 5. 결과 패널 업데이트 (GraphPanel 내부 로직에 의해 자동 수행됨)
 
-                updateStatus("계산 완료 (" + stressStrainData.size() + " 데이터 포인트) - 실험 ID: " + currentExperimentId);
+                if (analysisResult != null && analysisResult.getUtsPoint() != null) {
+                    saveExperimentToDatabase(filePath,
+                            analysisResult.getTensileStrength(),
+                            analysisResult.getUtsPoint().getEngineeringStrain());
+                }
+
+                updateStatus("계산 완료 (" + stressStrainData.size() + " 데이터 포인트)");
             }
         };
 

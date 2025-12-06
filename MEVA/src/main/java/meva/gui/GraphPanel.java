@@ -25,14 +25,14 @@ import java.util.List;
  * @version 2.0 - Refactored with ChartManager
  */
 public class GraphPanel extends JPanel implements ChartInputHandler.InteractionListener {
-    
+
     // --- 핵심 로직 위임 객체 ---
     private final ChartManager chartManager;
 
     // --- UI 컴포넌트 ---
-    private JPanel graphControlPanel;       // 하단 제어 영역 전체 (SOUTH)
-    private JPanel placeholderPanel;        // 차트가 없을 때 표시할 안내 패널
-    private JPanel chartContainerPanel;     // 차트가 들어갈 중앙 패널
+    private JPanel graphControlPanel; // 하단 제어 영역 전체 (SOUTH)
+    private JPanel placeholderPanel; // 차트가 없을 때 표시할 안내 패널
+    private JPanel chartContainerPanel; // 차트가 들어갈 중앙 패널
 
     // 옵션 체크박스들
     private JCheckBox utsCheckBox;
@@ -42,29 +42,29 @@ public class GraphPanel extends JPanel implements ChartInputHandler.InteractionL
     private JCheckBox slopeLineCheckBox;
     private JCheckBox elasticRegionCheckBox;
     private JCheckBox plasticRegionCheckBox;
-    
+
     // 신규 추가: 에너지 시각화 체크박스
     private JCheckBox resilienceCheckBox;
     private JCheckBox toughnessCheckBox;
     private JComboBox<String> resilienceModeComboBox; // 신규 추가: 모드 선택
-    
+
     // 차트 제어 버튼들
     private JButton zoomInButton;
     private JButton zoomOutButton;
     private JButton resetZoomButton;
     private JButton exportChartButton;
-    
+
     // 이벤트 리스너들
     private ActionListener zoomInListener;
     private ActionListener zoomOutListener;
     private ActionListener resetZoomListener;
     private ActionListener exportChartListener;
     private ActionListener markerRefChangedListener;
-    
+
     // 외부 의존성
     private ResultPanel resultPanel;
     private MaterialProperties materialCalculator = new MaterialProperties();
-    
+
     // 현재 상태 데이터
     private List<StressStrainPoint> currentData;
     private AnalysisResult currentResult;
@@ -79,7 +79,7 @@ public class GraphPanel extends JPanel implements ChartInputHandler.InteractionL
 
         // 2. 툴팁 지속 시간 설정
         ToolTipManager.sharedInstance().setDismissDelay(Integer.MAX_VALUE);
-        
+
         // 3. UI 구성
         initializeComponents();
         setupLayout();
@@ -88,7 +88,7 @@ public class GraphPanel extends JPanel implements ChartInputHandler.InteractionL
     public void setResultPanel(ResultPanel panel) {
         this.resultPanel = panel;
     }
-    
+
     // =================================================================================
     // 1. UI 초기화 및 레이아웃
     // =================================================================================
@@ -97,25 +97,25 @@ public class GraphPanel extends JPanel implements ChartInputHandler.InteractionL
         // --- 하단 제어 패널 (옵션 및 버튼) ---
         graphControlPanel = new JPanel(new GridLayout(2, 1, 0, 5));
         createUIComponents(); // 버튼/체크박스 생성
-        
+
         // [Row 1] 옵션 그룹
         JPanel row1 = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 5));
-        
+
         row1.add(utsCheckBox); // UTS
-        
+
         JPanel yieldPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 0)); // Yield
         yieldPanel.add(yieldCheckBox);
         yieldPanel.add(yieldModeComboBox);
-        yieldPanel.add(createHelpLabel("항복점 모드 안내", 
-            "<b>[항복점 모드]</b><br>실험 조건에 따라 자동 감지가 부정확할 수 있습니다. 필요 시 수동 변경하세요."));
+        yieldPanel.add(createHelpLabel("항복점 모드 안내",
+                "<b>[항복점 모드]</b><br>실험 조건에 따라 자동 감지가 부정확할 수 있습니다. 필요 시 수동 변경하세요."));
         row1.add(yieldPanel);
-        
+
         JPanel slopePanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 0)); // Slope
         slopePanel.add(slopeLineCheckBox);
-        slopePanel.add(createHelpLabel("탄성 구간 조절", 
-            "<b>[탄성 구간 조절]</b><br>파란색 점선 끝의 <b>네모 핸들</b>을 드래그하여 구간을 수동 설정하세요."));
+        slopePanel.add(createHelpLabel("탄성 구간 조절",
+                "<b>[탄성 구간 조절]</b><br>파란색 점선 끝의 <b>네모 핸들</b>을 드래그하여 구간을 수동 설정하세요."));
         row1.add(slopePanel);
-        
+
         JPanel refPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 0)); // Marker Ref
         refPanel.add(new JLabel("마커 기준:"));
         refPanel.add(markerRefComboBox);
@@ -125,23 +125,23 @@ public class GraphPanel extends JPanel implements ChartInputHandler.InteractionL
         JPanel row2 = new JPanel(new BorderLayout());
         JPanel row2Left = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 5));
         // row2Left.add(elasticRegionCheckBox); // (기존 탄/소성 체크박스 제거 또는 유지)
-        // row2Left.add(plasticRegionCheckBox); 
-        
+        // row2Left.add(plasticRegionCheckBox);
+
         // 에너지 시각화 체크박스 배치
         JPanel resPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
         resPanel.add(resilienceCheckBox);
         resPanel.add(resilienceModeComboBox);
-        resPanel.add(createHelpLabel("탄성 에너지", 
-            "<b>[탄성 에너지 (Resilience)]</b><br>재료가 영구 변형 없이 저장할 수 있는 에너지입니다.<br>" +
-            "- <b>Triangle:</b> 훅의 법칙을 가정한 이론적 값 (삼각형)<br>" +
-            "- <b>Integral:</b> 실제 실험 데이터를 적분한 값 (곡선 아래 면적)"));
-            
+        resPanel.add(createHelpLabel("탄성 에너지",
+                "<b>[탄성 에너지 (Resilience)]</b><br>재료가 영구 변형 없이 저장할 수 있는 에너지입니다.<br>" +
+                        "- <b>Triangle:</b> 훅의 법칙을 가정한 이론적 값 (삼각형)<br>" +
+                        "- <b>Integral:</b> 실제 실험 데이터를 적분한 값 (곡선 아래 면적)"));
+
         row2Left.add(resPanel);
-            
+
         row2Left.add(toughnessCheckBox);
-        row2Left.add(createHelpLabel("영역 표시 (인성)", 
-            "<b>[영역 표시 (인성)]</b><br>그래프의 전체 면적을 탄성(초록)/소성(주황) 구간으로 나누어 시각화합니다.<br>(전체 면적 = 인성)"));
-        
+        row2Left.add(createHelpLabel("영역 표시 (인성)",
+                "<b>[영역 표시 (인성)]</b><br>그래프의 전체 면적을 탄성(초록)/소성(주황) 구간으로 나누어 시각화합니다.<br>(전체 면적 = 인성)"));
+
         JPanel row2Right = new JPanel(new FlowLayout(FlowLayout.RIGHT, 5, 5));
         row2Right.add(zoomInButton);
         row2Right.add(zoomOutButton);
@@ -162,7 +162,7 @@ public class GraphPanel extends JPanel implements ChartInputHandler.InteractionL
         placeholderLabel.setFont(new Font("Dialog", Font.PLAIN, 14));
         placeholderLabel.setForeground(Color.GRAY);
         placeholderPanel.add(placeholderLabel, BorderLayout.CENTER);
-        
+
         // --- 차트 컨테이너 (CardLayout 유사 효과) ---
         chartContainerPanel = new JPanel(new BorderLayout());
         chartContainerPanel.add(placeholderPanel, BorderLayout.CENTER);
@@ -178,18 +178,20 @@ public class GraphPanel extends JPanel implements ChartInputHandler.InteractionL
             yieldModeComboBox.setEnabled(yieldCheckBox.isSelected());
             updateVisualization();
         });
-        
-        yieldModeComboBox = new JComboBox<>(new String[]{ "Auto (자동)", "0.2% Offset", "상/하항복점" });
+
+        yieldModeComboBox = new JComboBox<>(new String[] { "Auto (자동)", "0.2% Offset", "상/하항복점" });
         yieldModeComboBox.setEnabled(false);
         yieldModeComboBox.addActionListener(e -> {
+            triggerRecalculation();
             updateVisualization();
             notifyMarkerRefChanged("MODE_CHANGED");
         });
 
-        markerRefComboBox = new JComboBox<>(new String[]{ "Engineering (공칭)", "True (진)" });
+        markerRefComboBox = new JComboBox<>(new String[] { "Engineering (공칭)", "True (진)" });
         markerRefComboBox.addActionListener(e -> {
             boolean isTrue = markerRefComboBox.getSelectedIndex() == 1;
             chartManager.setMarkerMode(isTrue);
+            triggerRecalculation();
             updateVisualization();
             notifyMarkerRefChanged("REF_CHANGED");
         });
@@ -206,54 +208,59 @@ public class GraphPanel extends JPanel implements ChartInputHandler.InteractionL
 
         plasticRegionCheckBox = new JCheckBox("소성 영역");
         plasticRegionCheckBox.addActionListener(e -> updateVisualization());
-        
+
         // 신규 체크박스 및 모드 선택 생성
         resilienceCheckBox = new JCheckBox("탄성 에너지");
-        resilienceCheckBox.setSelected(true); 
+        resilienceCheckBox.setSelected(true);
         resilienceCheckBox.addActionListener(e -> {
             resilienceModeComboBox.setEnabled(resilienceCheckBox.isSelected());
             updateVisualization();
         });
-        
-        resilienceModeComboBox = new JComboBox<>(new String[]{"Triangle (Linear)", "Integral (Actual)"});
-        resilienceModeComboBox.setToolTipText("<html><b>[계산 모드 선택]</b><br>Triangle: Hooke's Law 근사 (삼각형)<br>Integral: 실제 곡선 적분</html>");
+
+        resilienceModeComboBox = new JComboBox<>(new String[] { "Triangle (Linear)", "Integral (Actual)" });
+        resilienceModeComboBox.setToolTipText(
+                "<html><b>[계산 모드 선택]</b><br>Triangle: Hooke's Law 근사 (삼각형)<br>Integral: 실제 곡선 적분</html>");
         resilienceModeComboBox.addActionListener(e -> updateVisualization());
 
         toughnessCheckBox = new JCheckBox("영역 표시 (인성)");
-        toughnessCheckBox.setSelected(true); 
+        toughnessCheckBox.setSelected(true);
         toughnessCheckBox.addActionListener(e -> updateVisualization());
-        
+
         // 버튼 생성
         zoomInButton = new JButton("Zoom In");
         zoomInButton.addActionListener(e -> {
             chartManager.zoomIn();
-            if (zoomInListener != null) zoomInListener.actionPerformed(e);
+            if (zoomInListener != null)
+                zoomInListener.actionPerformed(e);
         });
-        
+
         zoomOutButton = new JButton("Zoom Out");
         zoomOutButton.addActionListener(e -> {
             chartManager.zoomOut();
-            if (zoomOutListener != null) zoomOutListener.actionPerformed(e);
+            if (zoomOutListener != null)
+                zoomOutListener.actionPerformed(e);
         });
-        
+
         resetZoomButton = new JButton("Reset Zoom");
         resetZoomButton.addActionListener(e -> {
             chartManager.resetZoom();
-            if (resetZoomListener != null) resetZoomListener.actionPerformed(e);
+            if (resetZoomListener != null)
+                resetZoomListener.actionPerformed(e);
         });
-        
+
         exportChartButton = new JButton("Export Chart");
         exportChartButton.addActionListener(e -> {
             chartManager.doSaveAs();
-            if (exportChartListener != null) exportChartListener.actionPerformed(e);
+            if (exportChartListener != null)
+                exportChartListener.actionPerformed(e);
         });
     }
-    
+
     private void setupLayout() {
         setLayout(new BorderLayout());
         setBorder(BorderFactory.createTitledBorder("응력-변형률 곡선"));
         setPreferredSize(new Dimension(800, 600));
-        
+
         add(chartContainerPanel, BorderLayout.CENTER);
         add(graphControlPanel, BorderLayout.SOUTH);
     }
@@ -261,7 +268,7 @@ public class GraphPanel extends JPanel implements ChartInputHandler.InteractionL
     // =================================================================================
     // 2. 외부 인터페이스 (MainFrame에서 호출)
     // =================================================================================
-    
+
     /**
      * 그래프에 데이터를 표시합니다.
      */
@@ -272,32 +279,32 @@ public class GraphPanel extends JPanel implements ChartInputHandler.InteractionL
         }
 
         this.currentData = data;
-        
+
         // 1. ChartManager에게 데이터 전달
         chartManager.updateData(data);
-        
+
         // 2. 화면 전환 (Placeholder -> Chart)
         chartContainerPanel.removeAll();
         chartContainerPanel.add(chartManager.getChartPanel(), BorderLayout.CENTER);
         chartContainerPanel.revalidate();
         chartContainerPanel.repaint();
     }
-    
+
     /**
      * 분석 결과를 설정하고 그래프를 갱신합니다.
      */
     public void setAnalysisResult(AnalysisResult result) {
         this.currentResult = result;
-        
+
         // 1. ChartManager에게 결과 전달 (시각화용)
         // 초기 로드 시에는 핸들 위치도 자동 계산 (isManualUpdate = false)
         chartManager.updateAnalysisResult(result, false);
-        
+
         // 2. ResultPanel에게 결과 전달 (수치 표시용)
         if (this.resultPanel != null) {
             this.resultPanel.setAnalysisResult(result);
         }
-        
+
         // 3. UI 옵션에 맞춰 최종 시각화 및 수치 업데이트 수행
         updateVisualization();
     }
@@ -305,7 +312,7 @@ public class GraphPanel extends JPanel implements ChartInputHandler.InteractionL
     public JPanel getChartPanel() {
         return chartManager.getChartPanel();
     }
-    
+
     public void updateGraph() {
         revalidate();
         repaint();
@@ -322,22 +329,20 @@ public class GraphPanel extends JPanel implements ChartInputHandler.InteractionL
     private void updateVisualization() {
         // 기존 시각화 옵션
         chartManager.setVisualOptions(
-            utsCheckBox.isSelected(),
-            yieldCheckBox.isSelected(),
-            slopeLineCheckBox.isSelected(),
-            elasticRegionCheckBox.isSelected(),
-            plasticRegionCheckBox.isSelected(),
-            yieldModeComboBox.getSelectedIndex()
-        );
-        
+                utsCheckBox.isSelected(),
+                yieldCheckBox.isSelected(),
+                slopeLineCheckBox.isSelected(),
+                elasticRegionCheckBox.isSelected(),
+                plasticRegionCheckBox.isSelected(),
+                yieldModeComboBox.getSelectedIndex());
+
         // 신규 에너지 시각화 옵션 (모드 추가)
         boolean useTriangle = (resilienceModeComboBox.getSelectedIndex() == 0);
         chartManager.setAreaHighlightOptions(
-            resilienceCheckBox.isSelected(),
-            toughnessCheckBox.isSelected(),
-            useTriangle
-        );
-        
+                resilienceCheckBox.isSelected(),
+                toughnessCheckBox.isSelected(),
+                useTriangle);
+
         // [Fix] ResultPanel 수치 업데이트 연동
         if (resultPanel != null) {
             boolean isTrueMode = (markerRefComboBox.getSelectedIndex() == 1);
@@ -353,8 +358,8 @@ public class GraphPanel extends JPanel implements ChartInputHandler.InteractionL
     }
 
     // --- InteractionListener 구현 (ChartInputHandler로부터 콜백) ---
-        
-        @Override
+
+    @Override
     public void onHandleReleased() {
         // 핸들 조작 종료 시 재계산 로직 수행
         recalculateManualProperties();
@@ -364,62 +369,126 @@ public class GraphPanel extends JPanel implements ChartInputHandler.InteractionL
      * 수동 조작에 의한 재계산 실행
      */
     private void recalculateManualProperties() {
-        if (currentResult == null || currentData == null) return;
-        
+        if (currentResult == null || currentData == null)
+            return;
+
         // 1. 핸들 위치 가져오기
         java.awt.geom.Point2D.Double handleStart = chartManager.getHandleStart();
         java.awt.geom.Point2D.Double handleEnd = chartManager.getHandleEnd();
-        
-        if (handleStart == null || handleEnd == null) return;
+
+        if (handleStart == null || handleEnd == null)
+            return;
 
         // 2. 마커 기준 확인 (0: Eng, 1: True)
         boolean useEngineering = (markerRefComboBox.getSelectedIndex() == 0);
-        
+
         // 3. 재계산 수행
         AnalysisResult newResult = materialCalculator.recalculateFromManualSlope(
-            currentData, currentResult, handleStart.x, handleEnd.x, useEngineering
-        );
-        
+                currentData, currentResult, handleStart.x, handleEnd.x, useEngineering);
+
         // 4. 결과 갱신 및 UI 업데이트
         this.currentResult = newResult;
         // 수동 조작이므로 핸들 위치를 초기화하지 않음 (true)
         chartManager.updateAnalysisResult(newResult, true);
-        
+
         // [안전장치] ResultPanel에도 최신 결과 객체 전달 (동기화 보장)
         if (resultPanel != null) {
             resultPanel.setAnalysisResult(newResult);
         }
-        
+
         updateVisualization();
-        
+
         // 5. 결과 패널 알림 및 깜빡임 효과
         if (resultPanel != null && markerRefChangedListener != null) {
-            markerRefChangedListener.actionPerformed(new ActionEvent(this, ActionEvent.ACTION_PERFORMED, "RECALCULATED"));
-            resultPanel.flashRows(new int[]{3, 4}); // Young's Modulus & Yield Strength 행 깜빡임
+            markerRefChangedListener
+                    .actionPerformed(new ActionEvent(this, ActionEvent.ACTION_PERFORMED, "RECALCULATED"));
+            resultPanel.flashRows(new int[] { 3, 4 }); // Young's Modulus & Yield Strength 행 깜빡임
+        }
+
+        // [Fix] 수동 조작 시 항복점 모드를 'Offset Method'로 자동 전환하여 변경된 항복점이 반영되도록 함
+        if (currentResult.getYieldType() != AnalysisResult.YieldType.DISCONTINUOUS
+                || yieldModeComboBox.getSelectedIndex() == 0) {
+            yieldCheckBox.setSelected(true);
+            yieldModeComboBox.setEnabled(true);
+            yieldModeComboBox.setSelectedIndex(1); // 0.2% Offset 강제 선택
+        }
+
+        // 시각화 즉시 업데이트
+        updateVisualization();
+    }
+
+    /**
+     * [신규 추가] 콤보박스 옵션(Yield Mode, Marker Ref) 변경 시
+     * 핸들 위치는 유지한 채 에너지와 항복점만 재계산합니다.
+     */
+    private void triggerRecalculation() {
+        if (currentResult == null || currentData == null)
+            return;
+
+        boolean useEngineering = (markerRefComboBox.getSelectedIndex() == 0);
+
+        // MaterialProperties의 신규 메서드 호출하여 결과 갱신
+        AnalysisResult updated = materialCalculator.recalculatePropertiesBasedOnMode(
+                currentResult, currentData, useEngineering);
+
+        this.currentResult = updated;
+
+        // 차트 매니저 업데이트 (isManualUpdate = true -> 핸들 위치 초기화 방지)
+        chartManager.updateAnalysisResult(updated, true);
+
+        // ResultPanel 수치 업데이트
+        if (this.resultPanel != null) {
+            this.resultPanel.setAnalysisResult(updated);
         }
     }
 
     // --- Helper ---
-    
+
     private JLabel createHelpLabel(String title, String content) {
         JLabel label = new JLabel("(?)");
         label.setFont(new Font("SansSerif", Font.BOLD, 11));
         label.setForeground(Color.GRAY);
         label.setToolTipText("<html><div style='width:250px;'>" + content + "</div></html>");
         label.addMouseListener(new MouseAdapter() {
-            public void mouseEntered(MouseEvent e) { label.setForeground(new Color(33, 150, 243)); label.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR)); }
-            public void mouseExited(MouseEvent e) { label.setForeground(Color.GRAY); label.setCursor(Cursor.getPredefinedCursor(Cursor.DEFAULT_CURSOR)); }
+            public void mouseEntered(MouseEvent e) {
+                label.setForeground(new Color(33, 150, 243));
+                label.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+            }
+
+            public void mouseExited(MouseEvent e) {
+                label.setForeground(Color.GRAY);
+                label.setCursor(Cursor.getPredefinedCursor(Cursor.DEFAULT_CURSOR));
+            }
         });
         return label;
     }
 
     // --- Setters ---
-    public void setZoomInListener(ActionListener l) { this.zoomInListener = l; }
-    public void setZoomOutListener(ActionListener l) { this.zoomOutListener = l; }
-    public void setResetZoomListener(ActionListener l) { this.resetZoomListener = l; }
-    public void setExportChartListener(ActionListener l) { this.exportChartListener = l; }
-    public void setMarkerRefChangedListener(ActionListener l) { this.markerRefChangedListener = l; }
-    public int getMarkerRefMode() { return markerRefComboBox.getSelectedIndex(); }
-    public int getSelectedYieldMode() { return yieldModeComboBox.getSelectedIndex(); }
-}
+    public void setZoomInListener(ActionListener l) {
+        this.zoomInListener = l;
+    }
 
+    public void setZoomOutListener(ActionListener l) {
+        this.zoomOutListener = l;
+    }
+
+    public void setResetZoomListener(ActionListener l) {
+        this.resetZoomListener = l;
+    }
+
+    public void setExportChartListener(ActionListener l) {
+        this.exportChartListener = l;
+    }
+
+    public void setMarkerRefChangedListener(ActionListener l) {
+        this.markerRefChangedListener = l;
+    }
+
+    public int getMarkerRefMode() {
+        return markerRefComboBox.getSelectedIndex();
+    }
+
+    public int getSelectedYieldMode() {
+        return yieldModeComboBox.getSelectedIndex();
+    }
+}
