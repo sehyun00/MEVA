@@ -1,3 +1,5 @@
+// src/main/java/meva/fileio/TxtDataParser.java
+
 package meva.fileio;
 
 import meva.models.DataPoint;
@@ -11,8 +13,8 @@ import java.util.List;
  * TXT 형식의 실험 데이터 파일을 파싱하는 클래스
  * 탭으로 구분된 데이터를 읽어 DataPoint 리스트로 변환
  * 
- * @author MEVA 개발팀
- * @version 1.0
+ * @author 김종현
+ * @version 1.1
  */
 public class TxtDataParser {
 
@@ -68,10 +70,12 @@ public class TxtDataParser {
         double displacement = Double.parseDouble(values[2]);
         double strainGage = Double.parseDouble(values[3]);
         double thetaL = Double.parseDouble(values[4]);
-        double eStress = Double.parseDouble(values[5]);
-        double eStrain = Double.parseDouble(values[6]) / 100.0;
-        double tStress = Double.parseDouble(values[7]);
-        double tStrain = Double.parseDouble(values[8]) / 100.0;
+
+        // 수정됨 (v1.2): 사용자 피드백 반영 (5,6열=True, 7,8열=Eng)
+        double tStress = Double.parseDouble(values[5]);
+        double tStrain = Double.parseDouble(values[6]) / 100.0;
+        double eStress = Double.parseDouble(values[7]);
+        double eStrain = Double.parseDouble(values[8]) / 100.0;
 
         return new DataPoint(time, load, displacement, strainGage, thetaL,
                 eStress, eStrain, tStress, tStrain);
@@ -90,6 +94,7 @@ public class TxtDataParser {
                 return false;
 
             // 헤더에 필수 컬럼명이 있는지 확인
+            // THETA_L 등은 선택적이거나 이름이 변경될 수 있으므로 핵심 키워드만 검사
             return header.contains("TIME") && header.contains("LOAD") &&
                     header.contains("T.STRESS") && header.contains("T.STRAIN");
         } catch (IOException e) {

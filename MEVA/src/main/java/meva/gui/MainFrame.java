@@ -1,3 +1,5 @@
+// src/main/java/meva/gui/MainFrame.java
+
 package meva.gui;
 
 import javax.swing.*;
@@ -8,12 +10,12 @@ import meva.models.DataPoint;
 import meva.models.StressStrainPoint;
 import meva.models.Experiment;
 import meva.database.ExperimentDAO;
+import meva.models.AnalysisResult;
 import javax.swing.SwingWorker;
 import java.io.IOException;
 import java.util.List;
-import java.time.LocalDate;
+
 import meva.calculation.MaterialProperties;
-import java.util.ArrayList;
 
 /**
  * MEVA 애플리케이션의 메인 윈도우 프레임
@@ -24,34 +26,27 @@ import java.util.ArrayList;
  */
 public class MainFrame extends JFrame {
     // UI 컴포넌트
-    private MenuBar menuBar;              // 상단 메뉴바 (File, Edit, View 등)
-    private JToolBar toolBar;             // 자주 사용하는 기능을 아이콘으로 제공하는 툴바
-    private JPanel mainPanel;             // 전체 레이아웃을 담는 메인 컨테이너
-    private InputPanel inputPanel;        // 좌측: 사용자 입력 패널
+    // private MenuBar menuBar; // [Removed] UI Optimization
+    // private JToolBar toolBar; // [Removed] UI Optimization
+    private JPanel mainPanel; // 전체 레이아웃을 담는 메인 컨테이너
+    private InputPanel inputPanel; // 좌측: 사용자 입력 패널
     private GraphPanel visualizationPanel; // 중앙: 그래프 시각화 패널
-    private ResultPanel resultsPanel;     // 우측: 계산 결과 패널
-    private JPanel statusBar;             // 하단: 상태 메시지 및 진행률 표시줄
-    
-    // 계산 결과 값 저장 필드
-    private double youngsModulus;         // 영률 (E)
-    private double yieldStrength;         // 항복 강도 (σy)
-    private double elongation;            // 연신율
-    private double reductionOfArea;       // 단면 감소율
-    private double toughness;             // 인성
-    private double resilience;            // 탄성 에너지
-    private double elasticLimit;          // 탄성 한계
-    private double proportionalLimit;     // 비례 한계
-    private double neckingStartStrain;    // 네킹 시작 변형률
-    private double fractureStress;        // 파괴 응력
-    private double fractureStrain;        // 파괴 변형률
+    private ResultPanel resultsPanel; // 우측: 계산 결과 패널
+    private JPanel statusBar; // 하단: 상태 메시지 및 진행률 표시줄
 
     // 상태바 컴포넌트
-    private JLabel statusLabel;   // 현재 작업 상태 텍스트 표시
+    private JLabel statusLabel; // 현재 작업 상태 텍스트 표시
     private JProgressBar progressBar; // 긴 작업(계산 등) 진행률 표시
-    private JLabel timeLabel;     // 현재 시간 표시
+    private JLabel timeLabel; // 현재 시간 표시
 
     // 현재 실험 ID (저장된 실험 추적용)
     private int currentExperimentId = -1;
+
+    // 현재 분석 결과 데이터 (재사용용)
+    private AnalysisResult currentAnalysisResult;
+
+    private List<DataPoint> currentRawData; // [New] 원본 데이터 캐싱 (재계산용)
+    private double loadCorrectionFactor = 1.0; // [New] 하중 단위 자동 보정 계수
 
     /**
      * MainFrame 생성자
@@ -87,12 +82,7 @@ public class MainFrame extends JFrame {
      * 모든 컴포넌트 초기화
      */
     private void initializeComponents() {
-        // MenuBar 초기화
-        menuBar = new MenuBar();
-        setupMenuBarListeners();
-
-        // ToolBar 초기화
-        toolBar = createToolBar();
+        // MenuBar & ToolBar 초기화 제거 (UI Optimization)
 
         // 메인 패널 초기화 (BorderLayout)
         mainPanel = new JPanel(new BorderLayout());
@@ -107,6 +97,7 @@ public class MainFrame extends JFrame {
 
         // ResultsPanel 초기화 (EAST)
         resultsPanel = new ResultPanel();
+        visualizationPanel.setResultPanel(resultsPanel); // [New] 연결
         setupResultPanelListeners();
 
         // StatusBar 초기화 (SOUTH)
@@ -114,88 +105,49 @@ public class MainFrame extends JFrame {
     }
 
     /**
-     * MenuBar 이벤트 리스너 설정
-     */
-    private void setupMenuBarListeners() {
-        menuBar.setFileNewListener(e -> onNewProject());
-        menuBar.setFileOpenListener(e -> onOpenProject());
-        menuBar.setFileSaveListener(e -> onSaveProject());
-        menuBar.setFileSaveAsListener(e -> onSaveAsProject());
-        menuBar.setFileExportListener(e -> onExportData());
-        menuBar.setFileExitListener(e -> onExit());
-        menuBar.setEditUndoListener(e -> onUndo());
-        menuBar.setEditRedoListener(e -> onRedo());
-        menuBar.setEditPreferencesListener(e -> onPreferences());
-        menuBar.setViewZoomInListener(e -> onZoomIn());
-        menuBar.setViewZoomOutListener(e -> onZoomOut());
-        menuBar.setViewResetZoomListener(e -> onResetZoom());
-        menuBar.setViewToggleGridListener(e -> onToggleGrid());
-        menuBar.setViewToggleLegendListener(e -> onToggleLegend());
-        menuBar.setToolsCalculateListener(e -> onCalculate());
-        menuBar.setToolsClearDataListener(e -> onClearData());
-        menuBar.setToolsDataValidatorListener(e -> onDataValidator());
-        menuBar.setHelpUserGuideListener(e -> onUserGuide());
-        menuBar.setHelpAboutListener(e -> onAbout());
-    }
-
-    /**
      * InputPanel 이벤트 리스너 설정
      */
     private void setupInputPanelListeners() {
-        inputPanel.setCalculateListener(e -> onCalculateClicked());
+        inputPanel.setCalculateListener(this::onCalculateClicked);
         inputPanel.setResetListener(e -> onResetClicked());
-        inputPanel.setClearGraphListener(e -> onClearGraphClicked());
-        inputPanel.setPresetChangedListener(e -> onPresetChanged());
-        inputPanel.setSavePresetListener(e -> onSavePreset());
-        inputPanel.setDeletePresetListener(e -> onDeletePreset());
+        inputPanel.addExperimentLoadedListener(this::onExperimentLoaded); // [New] 실험 로드 리스너 연결
+    }
+
+    /**
+     * 실험 데이터 로드 시 호출됨
+     */
+    private void onExperimentLoaded(Experiment exp) {
+        if (exp != null) {
+            currentExperimentId = exp.getId(); // 로드된 ID 설정
+            updateStatus("Load complete: ID " + currentExperimentId);
+            // 저장 없이 분석 수행 및 그래프 표시
+            performAnalysis(false);
+        }
     }
 
     /**
      * GraphPanel 이벤트 리스너 설정
      */
     private void setupGraphPanelListeners() {
-        visualizationPanel.setZoomInListener(e -> onZoomIn());
-        visualizationPanel.setZoomOutListener(e -> onZoomOut());
-        visualizationPanel.setResetZoomListener(e -> onResetZoom());
-        visualizationPanel.setExportChartListener(e -> onExportChart());
+        // Zoom/Export listeners are internal to GraphPanel now or don't need MainFrame
+        // feedback.
+
+        // 마커 기준 변경 또는 수동 재계산 시 결과 패널 업데이트
+        visualizationPanel.setMarkerRefChangedListener(e -> {
+            if ("RECALCULATED".equals(e.getActionCommand())) {
+                // 수동 재계산 완료 상태 표시
+                updateStatus("수동 재계산 완료");
+            }
+            // 일반적인 변경은 GraphPanel 내부에서 ResultPanel.updateMode()를 통해 처리됨
+        });
     }
 
     /**
      * ResultPanel 이벤트 리스너 설정
      */
     private void setupResultPanelListeners() {
-        resultsPanel.setSaveButtonListener(e -> onSaveResultsClicked());
-    }
-
-    /**
-     * 툴바 생성
-     */
-    private JToolBar createToolBar() {
-        JToolBar toolBar = new JToolBar();
-        toolBar.setFloatable(false);
-        toolBar.setMargin(new Insets(5, 5, 5, 5));
-
-        // 툴바 버튼 추가
-        toolBar.add(createToolButton("New", "New Project", this::onNewProject));
-        toolBar.add(createToolButton("Open", "Open Project", this::onOpenProject));
-        toolBar.add(createToolButton("Save", "Save Project", this::onSaveProject));
-        toolBar.addSeparator();
-        toolBar.add(createToolButton("Export", "Export Data", this::onExportData));
-        toolBar.addSeparator();
-        toolBar.add(createToolButton("Settings", "Settings", this::onPreferences));
-
-        return toolBar;
-    }
-
-    /**
-     * 툴바 버튼 생성 헬퍼 메서드
-     */
-    private JButton createToolButton(String text, String tooltip, Runnable action) {
-        JButton button = new JButton(text);
-        button.setToolTipText(tooltip);
-        button.setPreferredSize(new Dimension(32, 32));
-        button.addActionListener(e -> action.run());
-        return button;
+        // ResultPanel 내부에서 저장을 처리하므로 MainFrame 리스너는 제거 또는 로깅만 수행
+        // resultsPanel.setSaveButtonListener(e -> onSaveResultsClicked());
     }
 
     /**
@@ -237,17 +189,17 @@ public class MainFrame extends JFrame {
     private void setupLayout() {
         setLayout(new BorderLayout());
 
-        // MenuBar 설정
-        setJMenuBar(menuBar);
+        // MenuBar 설정 제거
+        // setJMenuBar(menuBar);
 
-        // ToolBar 추가 (NORTH)
-        add(toolBar, BorderLayout.NORTH);
+        // ToolBar 추가 (NORTH) 제거
+        // add(toolBar, BorderLayout.NORTH);
 
         // 메인 패널 구성
         // 의도: 기존 BorderLayout 고정 배치 대신, 사용자가 각 패널(입력, 그래프, 결과)의
         // 너비를 작업 환경에 맞춰 유동적으로 조절할 수 있도록 JSplitPane 구조 도입
         mainPanel.add(createSplitPaneLayout(), BorderLayout.CENTER);
-        
+
         add(mainPanel, BorderLayout.CENTER);
 
         // StatusBar 추가 (SOUTH)
@@ -281,6 +233,7 @@ public class MainFrame extends JFrame {
                 inputPanel, rightPanel);
         leftRightSplit.setResizeWeight(0.0); // 입력 패널은 고정, 오른쪽 패널 확장
         leftRightSplit.setOneTouchExpandable(true);
+        leftRightSplit.setDividerLocation(360); // [New] 초기 너비 확보 (350 + 여유)
 
         return leftRightSplit;
     }
@@ -292,107 +245,43 @@ public class MainFrame extends JFrame {
         setTitle("MEVA - Materials Engineering Visualization and Analysis");
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setSize(1600, 900);
-        
+
         // 최소 크기 설정 (각 패널의 최소 너비 합계 고려)
         // Input(280) + Graph(800) + Result(300) + Dividers/Borders ≈ 1400
         // 의도: 사용자가 설정한 각 패널의 최소 너비를 보장하기 위해 프레임 전체의 최소 크기를 제한함
         setMinimumSize(new Dimension(1400, 768));
-        
+
         setLocationRelativeTo(null);
     }
 
     // ========== Event Handlers ==========
 
-    private void onNewProject() {
-        currentExperimentId = -1;
-        resultsPanel.clearResults();
-        updateStatus("New project created");
+    // [Removed] Placeholder event handlers for MenuBar/ToolBar
+
+    private void onCalculateClicked(java.awt.event.ActionEvent event) {
+        // 버튼 클릭(또는 수동 실행)은 DB 저장을 원칙으로 함 (단, 재계산인 경우 로직 따름)
+        // 여기서는 기존 로직 유지를 위해 '저장 모드'로 실행
+        performAnalysis(true);
     }
 
-    private void onOpenProject() {
-        JFileChooser fileChooser = new JFileChooser();
-        int result = fileChooser.showOpenDialog(this);
-        if (result == JFileChooser.APPROVE_OPTION) {
-            updateStatus("File loaded: " + fileChooser.getSelectedFile().getName());
-        }
-    }
-
-    private void onSaveProject() {
-        updateStatus("Project saved");
-    }
-
-    private void onSaveAsProject() {
-        updateStatus("Project saved as...");
-    }
-
-    private void onExportData() {
-        updateStatus("Data exported");
-    }
-
-    private void onExit() {
-        System.exit(0);
-    }
-
-    private void onUndo() {
-        updateStatus("Undo");
-    }
-
-    private void onRedo() {
-        updateStatus("Redo");
-    }
-
-    private void onPreferences() {
-        updateStatus("Preferences");
-    }
-
-    private void onZoomIn() {
-        updateStatus("Zoom in");
-    }
-
-    private void onZoomOut() {
-        updateStatus("Zoom out");
-    }
-
-    private void onResetZoom() {
-        updateStatus("Reset zoom");
-    }
-
-    private void onToggleGrid() {
-        updateStatus("Toggle grid");
-    }
-
-    private void onToggleLegend() {
-        updateStatus("Toggle legend");
-    }
-
-    private void onCalculate() {
-        onCalculateClicked();
-    }
-
-    private void onClearData() {
-        updateStatus("Data cleared");
-    }
-
-    private void onDataValidator() {
-        updateStatus("Data validator");
-    }
-
-    private void onUserGuide() {
-        updateStatus("User guide");
-    }
-
-    private void onAbout() {
-        JOptionPane.showMessageDialog(this,
-                "MEVA - Materials Engineering Visualization and Analysis\n" +
-                        "Version 1.0\n" +
-                        "© 2025 MEVA Development Team",
-                "About MEVA",
-                JOptionPane.INFORMATION_MESSAGE);
-    }
-
-    private void onCalculateClicked() {
+    /**
+     * 실제 분석 수행 메서드 (Save Flag 추가)
+     */
+    private void performAnalysis(boolean saveToDb) {
         // 1. 파일 경로 확인
         String filePath = inputPanel.getSelectedFilePath();
+
+        // [New] 재계산 여부는 saveToDb가 true이면서 기존 데이터가 있는 경우 등으로 판단 가능하나
+        // 여기서는 단순화하여 UI 상태 업데이트 위주로 처리
+        boolean isRecalculate = (currentAnalysisResult != null); // 결과가 이미 있으면 재계산으로 간주 (단, 로드는 제외)
+
+        // 로드 모드(saveToDb=false)일 때는 재계산 플래그를 false로 두어 파일 우선 로드 (또는 필요시 조정)
+        if (!saveToDb) {
+            isRecalculate = false;
+        }
+
+        // 재계산 요청이 들어왔으나 캐시된 데이터가 없으면 경고 후 일반 모드(파일 로드)로 전환 시도
+        // 하지만 파일 경로가 없으면 에러
         if (filePath == null || filePath.isEmpty()) {
             JOptionPane.showMessageDialog(this,
                     "먼저 데이터 파일을 선택해주세요.",
@@ -401,85 +290,105 @@ public class MainFrame extends JFrame {
             return;
         }
 
-        updateStatus("파일 읽는 중...");
+        updateStatus(isRecalculate ? "재계산 중..." : "파일 읽는 중...");
         progressBar.setVisible(true);
         progressBar.setIndeterminate(true);
 
+        // 데이터 준비 (EDT에서 UI 값 읽기)
+        final double userArea = inputPanel.getInitialCrossSection();
+        final double userLength = inputPanel.getGaugeLength();
+        final double userDiameter = inputPanel.getInitialDiameter(); // [New] For Formula Display
+        final Double finalAreaObj = inputPanel.getFinalCrossSectionArea();
+        final double finalArea = (finalAreaObj != null) ? finalAreaObj : 0.0;
+
         // 백그라운드 스레드에서 처리
+        boolean finalIsRecalculate = isRecalculate;
         SwingWorker<Void, Void> worker = new SwingWorker<Void, Void>() {
             private List<StressStrainPoint> stressStrainData;
             private String errorMessage;
-            private double maxStress;
-            private double strainAtMaxStress;
+            private AnalysisResult analysisResult;
 
             @Override
             protected Void doInBackground() throws Exception {
                 try {
-                    // 1. 파일 파싱
-                    TxtDataParser parser = new TxtDataParser();
-                    List<DataPoint> rawData = parser.parseFile(filePath);
-                    System.out.println("원본 데이터 포인트: " + rawData.size());
+                    List<DataPoint> rawData;
+                    StressStrainCalculator calculator = new StressStrainCalculator();
+
+                    // 1. 데이터 준비 (캐시 사용 또는 파일 로드)
+                    if (finalIsRecalculate && currentRawData != null) {
+                        rawData = currentRawData;
+                        System.out.println("캐시된 원본 데이터 사용: " + rawData.size());
+                    } else {
+                        TxtDataParser parser = new TxtDataParser();
+                        rawData = parser.parseFile(filePath);
+                        currentRawData = rawData; // [New] 캐싱
+                        System.out.println("파일에서 원본 데이터 로드: " + rawData.size());
+                    }
 
                     // 2. 응력-변형률 변환
-                    StressStrainCalculator calculator = new StressStrainCalculator();
-                    List<StressStrainPoint> convertedData = calculator.convertToStressStrain(rawData);
+                    // [New] 만약 재계산(Recalculate)이거나, 초기 직경/게이지 길이가 기본값과 다르면 수동 계산 시도
+                    // (userArea, userLength는 상위 스코프의 final 변수 사용)
 
-                    // 3. 데이터 클리닝 (음수 제거 + 파단 후 제거)
+                    List<StressStrainPoint> convertedData;
+
+                    // 재계산 버튼을 명시적으로 눌렀을 때만 보정된 계산 수행
+                    // 최초 로딩 시에는 파일 내의 Stress 값을 우선 사용하고, 추후를 위해 Factor를 계산해둠
+                    if (finalIsRecalculate) {
+                        System.out.println("사용자 입력 치수 및 보정 계수로 재계산 수행 (Area: "
+                                + String.format("%.2f", userArea) + ", LoadFactor: "
+                                + String.format("%.2f", loadCorrectionFactor) + ")");
+                        convertedData = calculator.calculateFromRawData(rawData, userArea, userLength,
+                                loadCorrectionFactor);
+                    } else {
+                        // 최초 로드: 파일 내 Stress 데이터 사용 (정확도 보장)
+                        convertedData = calculator.convertToStressStrain(rawData);
+
+                        // [Auto-Correction] 파일의 Stress 값과 사용자가 입력한(또는 기본값) Area 기반의 Load 값을 비교하여
+                        // 향후 재계산에 사용할 Load Unit Correction Factor를 계산해둠.
+                        if (userArea > 0) {
+                            loadCorrectionFactor = calculator.calculateCorrectionFactor(rawData, convertedData,
+                                    userArea);
+                            System.out.println("Load Correction Factor 계산됨: " + loadCorrectionFactor);
+                        }
+                    }
+
+                    // 3. 데이터 클리닝
                     convertedData = calculator.cleanData(convertedData);
-                    convertedData = calculator.applyZeroOffset(convertedData); 
+                    convertedData = calculator.applyZeroOffset(convertedData);
 
-                    // 스무딩 전 데이터를 별도 저장 (영률 계산용)
-                    List<StressStrainPoint> rawStressStrainData = new ArrayList<>(convertedData);
-                    System.out.println("클리닝 완료: " + rawStressStrainData.size() + "개 포인트");
-
-                    // 4. 노이즈 제거 (스무딩) - 그래프 및 대부분의 계산용
+                    // 4. 노이즈 제거
                     int windowSize = 20;
-                    convertedData = calculator.smoothData(convertedData, windowSize);
-                    System.out.println("스무딩 완료 (window size: " + windowSize + ")");
+                    convertedData = calculator.smoothData(convertedData, windowSize); // Method name corrected if it was
+                                                                                      // different
 
-                    // ⭐ 필드에 할당 (done()에서 사용)
                     this.stressStrainData = convertedData;
-                    System.out.println("최종 데이터 포인트: " + stressStrainData.size());
 
-                    // 5. 계산 결과 생성
-                    maxStress = calculator.findMaxStress(stressStrainData);
-                    strainAtMaxStress = calculator.findStrainAtMaxStress(stressStrainData);
-
-                    // 6. 재료 물성 계산
+                    // 5. 물성 분석
                     MaterialProperties materialProps = new MaterialProperties();
+                    // 초기 단면적과 최종 단면적을 전달하여 RA 계산 지원
+                    this.analysisResult = materialProps.analyze(stressStrainData, userArea, finalArea);
 
-                    // 영률은 스무딩 전 원본 데이터로 계산
-                    System.out.println("\n=== 영률 계산 (원본 데이터 사용) ===");
-                    youngsModulus = materialProps.calculateYoungsModulus(rawStressStrainData);
+                    // [New] 메타데이터 주입
+                    this.analysisResult.setExperimentName(inputPanel.getMaterialName()); // 재료명을 실험명으로 사용
+                    this.analysisResult.setExperimenter(inputPanel.getTesterName());
+                    this.analysisResult.setRemarks(inputPanel.getRemarks());
+                    this.analysisResult.setTestDate(inputPanel.getTestDate());
 
-                    // 나머지는 스무딩된 데이터로 계산
-                    System.out.println("\n=== 기타 물성 계산 (스무딩 데이터 사용) ===");
-                    yieldStrength = materialProps.calculateYieldStrength(stressStrainData, youngsModulus);
-                    elongation = materialProps.calculateElongation(stressStrainData);
-                    reductionOfArea = materialProps.calculateReductionOfArea(stressStrainData);
-                    toughness = materialProps.calculateToughness(stressStrainData);
-                    resilience = materialProps.calculateResilience(stressStrainData, yieldStrength);
-                    elasticLimit = materialProps.calculateElasticLimit(rawStressStrainData, youngsModulus);
-                    proportionalLimit = materialProps.calculateProportionalLimit(rawStressStrainData, youngsModulus);
-                    neckingStartStrain = materialProps.calculateNeckingStartStrain(stressStrainData, maxStress);
-                    fractureStress = materialProps.calculateFractureStress(stressStrainData);
-                    fractureStrain = materialProps.calculateFractureStrain(stressStrainData);
-
-                    System.out.println("\n=== 계산된 재료 물성 ===");
-                    System.out.println("영률 (E): " + youngsModulus + " GPa");
-                    System.out.println("항복 강도 (σy): " + yieldStrength + " MPa");
-                    System.out.println("연신율: " + elongation + " %");
-                    System.out.println("단면 감소율: " + reductionOfArea + " %");
-                    System.out.println("인성: " + toughness + " MJ/m³");
-                    System.out.println("탄성 에너지: " + resilience + " MJ/m³");
-                    System.out.println("탄성 한계: " + elasticLimit + " MPa");
-                    System.out.println("비례 한계: " + proportionalLimit + " MPa");
-                    System.out.println("네킹 시작 변형률: " + neckingStartStrain);
-                    System.out.println("파괴 응력: " + fractureStress + " MPa");
-                    System.out.println("파괴 변형률: " + fractureStrain);
-
-                    // 7. DB에 실험 데이터 저장
-                    saveExperimentToDatabase(filePath, maxStress, strainAtMaxStress);
+                    // [New] Raw Data for Formula Substitution
+                    this.analysisResult.setInitialLength(userLength);
+                    this.analysisResult.setInitialArea(userArea);
+                    this.analysisResult.setFinalArea(finalArea);
+                    this.analysisResult.setInitialDiameter(userDiameter);
+                    // Final Diameter Estimate (assuming circular)
+                    if (finalArea > 0) {
+                        this.analysisResult.setFinalDiameter(Math.sqrt(4 * finalArea / Math.PI));
+                    }
+                    // Max Load Calculation (Derived from UTS * Area) [N]
+                    if (this.analysisResult.getUtsPoint() != null) {
+                        // Use Engineering Stress which is P/A0
+                        double maxStressEng = this.analysisResult.getUtsPoint().getEngineeringStress();
+                        this.analysisResult.setMaxLoad(maxStressEng * userArea);
+                    }
 
                 } catch (IOException e) {
                     errorMessage = "파일 읽기 실패: " + e.getMessage();
@@ -504,30 +413,19 @@ public class MainFrame extends JFrame {
                     return;
                 }
 
-                // 4. 그래프에 표시
                 visualizationPanel.plotStressStrainCurve(stressStrainData);
+                visualizationPanel.setAnalysisResult(analysisResult);
+                currentAnalysisResult = analysisResult;
 
-                // 5. 결과 패널 업데이트// 5. 결과 패널 업데이트
-                Object[][] resultsData = {
-                        { "최대 응력 (σmax)", String.format("%.2f", maxStress), "MPa" },
-                        { "최대 응력 시 변형률 (εmax)", String.format("%.4f", strainAtMaxStress), "-" },
-                        { "극한 인장 강도 (UTS)", String.format("%.2f", maxStress), "MPa" },
-                        { "영률 (E)", String.format("%.2f", youngsModulus), "GPa" },
-                        { "항복 강도 (σy)", String.format("%.2f", yieldStrength), "MPa" },
-                        { "연신율", String.format("%.2f", elongation), "%" },
-                        { "단면 감소율", String.format("%.2f", reductionOfArea), "%" },
-                        { "인성", String.format("%.2f", toughness), "MJ/m³" },
-                        { "탄성 에너지", String.format("%.2f", resilience), "MJ/m³" },
-                        { "탄성 한계", elasticLimit > 0 ? String.format("%.2f", elasticLimit) : "-", "MPa" },
-                        { "비례 한계", proportionalLimit > 0 ? String.format("%.2f", proportionalLimit) : "-", "MPa" },
-                        { "네킹 시작 변형률", neckingStartStrain > 0 ? String.format("%.4f", neckingStartStrain) : "-", "-" },
-                        { "파괴 응력", fractureStress > 0 ? String.format("%.2f", fractureStress) : "-", "MPa" },
-                        { "파괴 변형률", fractureStrain > 0 ? String.format("%.4f", fractureStrain) : "-", "-" }
-                };
+                if (saveToDb && analysisResult != null && analysisResult.getUtsPoint() != null) {
+                    saveExperimentToDatabase(filePath,
+                            analysisResult.getTensileStrength(),
+                            analysisResult.getUtsPoint().getEngineeringStrain());
+                } else if (!saveToDb) {
+                    System.out.println("로드 모드: DB 저장 건너뜀");
+                }
 
-                resultsPanel.updateResults(resultsData);
-
-                updateStatus("계산 완료 (" + stressStrainData.size() + " 데이터 포인트) - 실험 ID: " + currentExperimentId);
+                updateStatus("계산 완료 (" + stressStrainData.size() + " 데이터 포인트)");
             }
         };
 
@@ -542,12 +440,19 @@ public class MainFrame extends JFrame {
             // Experiment 객체 생성
             Experiment exp = new Experiment();
             exp.setMaterialId(1); // 기본 재료 ID (TODO: 사용자 선택 기능 추가)
+            exp.setMaterialName(inputPanel.getMaterialName()); // 사용자 입력값
+
             exp.setSpecimenDiameter(inputPanel.getInitialDiameter());
             exp.setGaugeLength(inputPanel.getGaugeLength());
             exp.setCrossSectionArea(inputPanel.getInitialCrossSection());
-            exp.setTestDate(LocalDate.now().toString());
+            exp.setFinalCrossSectionArea(inputPanel.getFinalCrossSectionArea());
+
+            exp.setTestDate(inputPanel.getTestDate());
+            exp.setTesterName(inputPanel.getTesterName());
+            exp.setTestMethod(inputPanel.getTestMethod());
+
             exp.setDataFilePath(filePath);
-            exp.setRemarks("자동 저장된 실험");
+            exp.setRemarks(inputPanel.getRemarks());
 
             // DAO를 통해 저장
             ExperimentDAO dao = new ExperimentDAO();
@@ -566,95 +471,11 @@ public class MainFrame extends JFrame {
         }
     }
 
-    /**
-     * Save Results 버튼 클릭 이벤트
-     */
-    private void onSaveResultsClicked() {
-        // 1. 계산된 결과 데이터가 있는지 확인 (테이블 모델에서 확인)
-        if (resultsPanel.getTableModel().getRowCount() == 0 ||
-                resultsPanel.getTableModel().getValueAt(0, 1).equals("-")) {
-            JOptionPane.showMessageDialog(this,
-                    "먼저 Calculate 버튼을 눌러 계산을 수행하세요.",
-                    "계산 필요",
-                    JOptionPane.WARNING_MESSAGE);
-            return;
-        }
-
-        // 2. CSV 파일 저장 다이얼로그 열기
-        JFileChooser fileChooser = new JFileChooser();
-        fileChooser.setDialogTitle("결과 저장 (CSV)");
-
-        // 기본 파일명 설정
-        java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("yyyyMMdd_HHmmss");
-        String timeStamp = sdf.format(new java.util.Date());
-        String defaultFileName = "MEVA_Results_" + timeStamp + ".csv";
-        fileChooser.setSelectedFile(new java.io.File(defaultFileName));
-
-        // CSV 필터 설정
-        fileChooser.setFileFilter(new javax.swing.filechooser.FileNameExtensionFilter("CSV 파일", "csv"));
-
-        int userSelection = fileChooser.showSaveDialog(this);
-
-        // 3. 사용자가 저장을 눌렀을 때 실제 파일 쓰기
-        if (userSelection == JFileChooser.APPROVE_OPTION) {
-            java.io.File fileToSave = fileChooser.getSelectedFile();
-
-            // 확장자가 없으면 자동으로 .csv 붙여주기
-            if (!fileToSave.getAbsolutePath().endsWith(".csv")) {
-                fileToSave = new java.io.File(fileToSave.getAbsolutePath() + ".csv");
-            }
-
-            try (java.io.PrintWriter writer = new java.io.PrintWriter(fileToSave)) {
-                // CSV 헤더 작성
-                writer.println("Property,Value,Unit");
-
-                // 결과 데이터 작성 (테이블 모델에서 읽어오기)
-                javax.swing.table.DefaultTableModel model = resultsPanel.getTableModel();
-                for (int i = 0; i < model.getRowCount(); i++) {
-                    Object prop = model.getValueAt(i, 0);
-                    Object val = model.getValueAt(i, 1);
-                    Object unit = model.getValueAt(i, 2);
-                    writer.println(String.format("\"%s\",\"%s\",\"%s\"", prop, val, unit));
-                }
-
-                JOptionPane.showMessageDialog(this,
-                        "파일이 성공적으로 저장되었습니다:\n" + fileToSave.getAbsolutePath(),
-                        "저장 완료",
-                        JOptionPane.INFORMATION_MESSAGE);
-
-            } catch (IOException e) {
-                e.printStackTrace();
-                JOptionPane.showMessageDialog(this,
-                        "파일 저장 중 오류가 발생했습니다: " + e.getMessage(),
-                        "저장 오류",
-                        JOptionPane.ERROR_MESSAGE);
-            }
-        }
-    }
-
     private void onResetClicked() {
         currentExperimentId = -1;
+        resultsPanel.clearResults();
+        visualizationPanel.clearGraph();
         updateStatus("Input reset");
-    }
-
-    private void onClearGraphClicked() {
-        updateStatus("Graph cleared");
-    }
-
-    private void onPresetChanged() {
-        updateStatus("Preset changed");
-    }
-
-    private void onSavePreset() {
-        updateStatus("Preset saved");
-    }
-
-    private void onDeletePreset() {
-        updateStatus("Preset deleted");
-    }
-
-    private void onExportChart() {
-        updateStatus("Chart exported");
     }
 
     /**

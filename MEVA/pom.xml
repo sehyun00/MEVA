@@ -47,6 +47,13 @@
             <artifactId>jfreechart</artifactId>
             <version>1.5.3</version>
         </dependency>
+
+        <!-- JLatexMath -->
+        <dependency>
+            <groupId>org.scilab.forge</groupId>
+            <artifactId>jlatexmath</artifactId>
+            <version>1.0.7</version>
+        </dependency>
     </dependencies>
 
     <build>
