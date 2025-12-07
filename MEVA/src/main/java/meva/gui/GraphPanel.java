@@ -12,8 +12,9 @@ import javax.swing.*;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
-import java.awt.event.MouseAdapter;
-import java.awt.event.MouseEvent;
+import javax.swing.border.EmptyBorder;
+import meva.education.GlossaryManager;
+import java.util.Map;
 import java.util.List;
 
 /**
@@ -159,6 +160,12 @@ public class GraphPanel extends JPanel implements ChartInputHandler.InteractionL
         row2Right.add(zoomInButton);
         row2Right.add(zoomOutButton);
         row2Right.add(resetZoomButton);
+
+        // [New] 용어 설명 버튼
+        JButton tipsButton = new JButton("용어 설명");
+        tipsButton.addActionListener(e -> showTipsDialog());
+        row2Right.add(tipsButton);
+
         row2Right.add(Box.createHorizontalStrut(10));
         row2Right.add(exportChartButton);
 
@@ -268,10 +275,18 @@ public class GraphPanel extends JPanel implements ChartInputHandler.InteractionL
 
         exportChartButton = new JButton("차트 저장");
         exportChartButton.addActionListener(e -> {
-            chartManager.doSaveAs();
+            String defaultName = "MEVA_Chart";
+            if (currentResult != null && currentResult.getExperimentName() != null) {
+                String matName = currentResult.getExperimentName().replaceAll("[^a-zA-Z0-9가-힣]", "_");
+                String timestamp = new java.text.SimpleDateFormat("yyyyMMdd_HHmmss").format(new java.util.Date());
+                defaultName = matName + "_" + timestamp;
+            }
+            chartManager.saveChartImage(defaultName);
+
             if (exportChartListener != null)
                 exportChartListener.actionPerformed(e);
         });
+
     }
 
     private void setupLayout() {
@@ -482,6 +497,45 @@ public class GraphPanel extends JPanel implements ChartInputHandler.InteractionL
         if (this.resultPanel != null) {
             this.resultPanel.setAnalysisResult(updated);
         }
+        if (this.resultPanel != null) {
+            this.resultPanel.setAnalysisResult(updated);
+        }
+    }
+
+    private void showTipsDialog() {
+        JDialog dialog = new JDialog((Frame) SwingUtilities.getWindowAncestor(this), "재료 역학 용어 설명", false);
+        dialog.setLayout(new BorderLayout());
+        dialog.setSize(500, 600);
+        dialog.setLocationRelativeTo(this);
+
+        StringBuilder html = new StringBuilder("<html><body style='padding: 10px; font-family: sans-serif;'>");
+        for (Map.Entry<String, String> entry : GlossaryManager.getAllDefinitions().entrySet()) {
+            // Remove <html> tag from value if starts with it, to merge into body
+            String val = entry.getValue();
+            if (val.startsWith("<html>"))
+                val = val.substring(6);
+            if (val.endsWith("</html>"))
+                val = val.substring(0, val.length() - 7);
+
+            html.append("<div style='margin-bottom: 15px; border-bottom: 1px solid #ccc; padding-bottom: 10px;'>");
+            html.append(val);
+            html.append("</div>");
+        }
+        html.append("</body></html>");
+
+        JEditorPane editorPane = new JEditorPane("text/html", html.toString());
+        editorPane.setEditable(false);
+        editorPane.setCaretPosition(0);
+
+        dialog.add(new JScrollPane(editorPane), BorderLayout.CENTER);
+
+        JButton closeButton = new JButton("닫기");
+        closeButton.addActionListener(e -> dialog.dispose());
+        JPanel btnPanel = new JPanel();
+        btnPanel.add(closeButton);
+        dialog.add(btnPanel, BorderLayout.SOUTH);
+
+        dialog.setVisible(true);
     }
 
     // --- Helper ---

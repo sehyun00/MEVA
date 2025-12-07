@@ -1,6 +1,6 @@
 package meva.education;
 
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
@@ -8,10 +8,9 @@ import java.util.Map;
  * 툴팁 및 교육용 팝업에 사용되는 텍스트를 제공합니다.
  */
 public class GlossaryManager {
-        private static final Map<String, String> glossary = new HashMap<>();
+        private static final Map<String, String> glossary = new LinkedHashMap<>();
 
         static {
-                // 주요 물성 정의 (HTML 포맷 사용하여 툴팁 가독성 향상)
                 // 주요 물성 정의 (HTML 포맷 사용하여 툴팁 가독성 향상)
                 glossary.put("극한 인장 강도 (UTS)",
                                 "<html><b>극한 인장 강도 (Ultimate Tensile Strength)</b><br>" +
@@ -92,5 +91,9 @@ public class GlossaryManager {
                 }
 
                 return null;
+        }
+
+        public static Map<String, String> getAllDefinitions() {
+                return glossary;
         }
 }

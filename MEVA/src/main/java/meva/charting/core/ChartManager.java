@@ -410,13 +410,67 @@ public class ChartManager {
             chartPanel.restoreAutoBounds();
     }
 
-    public void doSaveAs() {
-        if (chartPanel != null)
+    /**
+     * 차트 이미지를 저장합니다 (WYSIWYG 방식 - 오버레이 포함).
+     * 
+     * @param defaultFileName 저장할 파일의 기본 이름
+     */
+    public void saveChartImage(String defaultFileName) {
+        if (chartPanel == null)
+            return;
+
+        JFileChooser fileChooser = new JFileChooser();
+        fileChooser.setDialogTitle("차트 이미지 저장");
+
+        // 기본 파일명 설정
+        if (defaultFileName == null || defaultFileName.isEmpty()) {
+            defaultFileName = "Chart_Export.png";
+        }
+        if (!defaultFileName.toLowerCase().endsWith(".png")) {
+            defaultFileName += ".png";
+        }
+        fileChooser.setSelectedFile(new java.io.File(defaultFileName));
+
+        // PNG 필터
+        javax.swing.filechooser.FileNameExtensionFilter filter = new javax.swing.filechooser.FileNameExtensionFilter(
+                "PNG Images", "png");
+        fileChooser.setFileFilter(filter);
+
+        if (fileChooser.showSaveDialog(chartPanel) == JFileChooser.APPROVE_OPTION) {
+            java.io.File file = fileChooser.getSelectedFile();
+            if (!file.getName().toLowerCase().endsWith(".png")) {
+                file = new java.io.File(file.getAbsolutePath() + ".png");
+            }
+
             try {
-                chartPanel.doSaveAs();
+                // 패널 크기만큼 이미지 생성 (WYSIWYG)
+                int w = chartPanel.getWidth();
+                int h = chartPanel.getHeight();
+                java.awt.image.BufferedImage image = new java.awt.image.BufferedImage(w, h,
+                        java.awt.image.BufferedImage.TYPE_INT_ARGB);
+                Graphics2D g2 = image.createGraphics();
+
+                // 패널 그리기 (오버레이 포함)
+                chartPanel.paint(g2);
+                g2.dispose();
+
+                javax.imageio.ImageIO.write(image, "png", file);
+
+                JOptionPane.showMessageDialog(chartPanel,
+                        "이미지가 성공적으로 저장되었습니다:\n" + file.getAbsolutePath(),
+                        "저장 완료", JOptionPane.INFORMATION_MESSAGE);
+
             } catch (java.io.IOException e) {
                 e.printStackTrace();
+                JOptionPane.showMessageDialog(chartPanel,
+                        "이미지 저장 중 오류 발생: " + e.getMessage(),
+                        "저장 오류", JOptionPane.ERROR_MESSAGE);
             }
+        }
+    }
+
+    public void doSaveAs() {
+        saveChartImage("MEVA_Chart_" + System.currentTimeMillis() + ".png");
     }
 
     /**

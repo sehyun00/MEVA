@@ -137,13 +137,12 @@ public class ResultPanel extends JPanel {
         });
 
         // Save Results 버튼 생성
-        saveButton = new JButton("결과 저장");
-        saveButton.setPreferredSize(new Dimension(120, 35));
+        // Save Results 버튼 생성
+        saveButton = new JButton("결과 파일 내보내기 (CSV)");
+        saveButton.setPreferredSize(new Dimension(180, 35)); // 너비 확장
         saveButton.setFont(new Font("Dialog", Font.BOLD, 12));
-        saveButton.setBackground(new Color(76, 175, 80)); // 녹색
-        saveButton.setForeground(Color.WHITE);
+        // [User Request] 기존 녹색 배경 제거 및 기본 스타일 적용 (Modern & Clean)
         saveButton.setFocusPainted(false);
-        saveButton.setBorderPainted(false);
         saveButton.addActionListener(e -> {
             // CSV 로 저장
             saveResultsToCSV();
@@ -216,7 +215,14 @@ public class ResultPanel extends JPanel {
 
         // 기본 파일명 설정
         String timestamp = new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date());
-        fileChooser.setSelectedFile(new File("MEVA_Results_" + timestamp + ".csv"));
+        String defaultName = "MEVA_Results_" + timestamp;
+
+        if (currentResult != null && currentResult.getExperimentName() != null) {
+            String matName = currentResult.getExperimentName().replaceAll("[^a-zA-Z0-9가-힣]", "_");
+            defaultName = matName + "_" + timestamp;
+        }
+
+        fileChooser.setSelectedFile(new File(defaultName + ".csv"));
 
         // CSV 파일 필터 추가
         javax.swing.filechooser.FileNameExtensionFilter filter = new javax.swing.filechooser.FileNameExtensionFilter(
@@ -249,9 +255,18 @@ public class ResultPanel extends JPanel {
             // 파일 저장
             try (FileWriter writer = new FileWriter(fileToSave)) {
                 // 헤더 정보 작성
+                // 헤더 정보 작성
                 writer.write("MEVA - Materials Engineering Visualization and Analysis\n");
                 writer.write("Results Export\n");
-                writer.write("Date/Time: " + new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date()) + "\n");
+                writer.write("Export Date: " + new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date()) + "\n");
+
+                // [New] 메타데이터 출력
+                if (currentResult != null) {
+                    writer.write("Material: " + getSafeString(currentResult.getExperimentName()) + "\n");
+                    writer.write("Test Date: " + getSafeString(currentResult.getTestDate()) + "\n");
+                    writer.write("Tester: " + getSafeString(currentResult.getExperimenter()) + "\n");
+                    writer.write("Remarks: " + getSafeString(currentResult.getRemarks()) + "\n");
+                }
                 writer.write("\n");
 
                 // 테이블 헤더 작성
@@ -595,5 +610,9 @@ public class ResultPanel extends JPanel {
                 break;
             }
         }
+    }
+
+    private String getSafeString(String input) {
+        return (input != null) ? input : "-";
     }
 }

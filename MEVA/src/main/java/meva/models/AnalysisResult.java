@@ -42,6 +42,12 @@ public class AnalysisResult {
     private double fractureStress; // 파괴 응력 (MPa)
     private double fractureStrain; // 파괴 변형률
 
+    // [New] 메타데이터 (CSV 내보내기용)
+    private String experimentName;
+    private String experimenter;
+    private String remarks;
+    private String testDate; // YYYY-MM-DD
+
     // 생성자
     public AnalysisResult() {
     }
@@ -237,5 +243,38 @@ public class AnalysisResult {
 
     public void setUniformElongation(double uniformElongation) {
         this.uniformElongation = uniformElongation;
+    }
+
+    // [New] 메타데이터 Getters/Setters
+    public String getExperimentName() {
+        return experimentName;
+    }
+
+    public void setExperimentName(String experimentName) {
+        this.experimentName = experimentName;
+    }
+
+    public String getExperimenter() {
+        return experimenter;
+    }
+
+    public void setExperimenter(String experimenter) {
+        this.experimenter = experimenter;
+    }
+
+    public String getRemarks() {
+        return remarks;
+    }
+
+    public void setRemarks(String remarks) {
+        this.remarks = remarks;
+    }
+
+    public String getTestDate() {
+        return testDate;
+    }
+
+    public void setTestDate(String testDate) {
+        this.testDate = testDate;
     }
 }

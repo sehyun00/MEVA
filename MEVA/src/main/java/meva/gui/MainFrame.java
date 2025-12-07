@@ -148,7 +148,8 @@ public class MainFrame extends JFrame {
      * ResultPanel 이벤트 리스너 설정
      */
     private void setupResultPanelListeners() {
-        resultsPanel.setSaveButtonListener(e -> onSaveResultsClicked());
+        // ResultPanel 내부에서 저장을 처리하므로 MainFrame 리스너는 제거 또는 로깅만 수행
+        // resultsPanel.setSaveButtonListener(e -> onSaveResultsClicked());
     }
 
     /**
@@ -368,6 +369,12 @@ public class MainFrame extends JFrame {
                     MaterialProperties materialProps = new MaterialProperties();
                     // 초기 단면적과 최종 단면적을 전달하여 RA 계산 지원
                     this.analysisResult = materialProps.analyze(stressStrainData, userArea, finalArea);
+
+                    // [New] 메타데이터 주입
+                    this.analysisResult.setExperimentName(inputPanel.getMaterialName()); // 재료명을 실험명으로 사용
+                    this.analysisResult.setExperimenter(inputPanel.getTesterName());
+                    this.analysisResult.setRemarks(inputPanel.getRemarks());
+                    this.analysisResult.setTestDate(inputPanel.getTestDate());
 
                 } catch (IOException e) {
                     errorMessage = "파일 읽기 실패: " + e.getMessage();
