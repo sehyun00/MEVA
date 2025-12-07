@@ -45,22 +45,6 @@ public class GlossaryManager {
                                                 "네킹(Necking)이 시작되기 전까지 시편 전체가 균일하게 늘어나는 한계를 의미합니다.<br>" +
                                                 "성형성(Formability) 평가에 중요한 지표입니다.</html>");
 
-                glossary.put("가공경화지수 (n)",
-                                "<html><b>가공경화지수 (Strain Hardening Exponent, n)</b><br>" +
-                                                "재료가 가공(변형)될 때 얼마나 단단해지는지를 나타내는 지수입니다.<br>" +
-                                                "0.1 ~ 0.5 사이의 값을 가지며, 값이 클수록 국부 변형을 지연시켜<br>" +
-                                                "성형성이 우수함을 의미합니다. (식: σ = Kεⁿ)</html>");
-
-                glossary.put("강도 계수 (K)",
-                                "<html><b>강도 계수 (Strength Coefficient, K)</b><br>" +
-                                                "재료의 진응력-진변형률 관계식(σ = Kεⁿ)에서 도출되는 계수입니다.<br>" +
-                                                "진변형률이 1.0일 때의 가상의 진응력 값을 의미합니다.</html>");
-
-                glossary.put("스프링백 (Springback)",
-                                "<html><b>스프링백 (Springback)</b><br>" +
-                                                "하중을 제거했을 때 재료가 탄성적으로 원래 모양으로 돌아가려는 현상입니다.<br>" +
-                                                "정밀한 치수의 제품을 만들 때 반드시 고려해야 하는 회복량입니다.</html>");
-
                 glossary.put("단면 감소율",
                                 "<html><b>단면 감소율 (Reduction of Area)</b><br>" +
                                                 "파단 후 시편의 단면적이 줄어든 비율입니다.<br>" +

@@ -402,7 +402,6 @@ public class GraphPanel extends JPanel implements ChartInputHandler.InteractionL
         if (resultPanel != null && markerRefChangedListener != null) {
             markerRefChangedListener
                     .actionPerformed(new ActionEvent(this, ActionEvent.ACTION_PERFORMED, "RECALCULATED"));
-            resultPanel.flashRows(new int[] { 3, 4 }); // Young's Modulus & Yield Strength 행 깜빡임
         }
 
         // [Fix] 수동 조작 시 항복점 모드를 'Offset Method'로 자동 전환하여 변경된 항복점이 반영되도록 함

@@ -41,9 +41,6 @@ public class ResultPanel extends JPanel {
             { "연신율", "-", "%" },
             { "균일 연신율 (Uniform Elongation)", "-", "-" },
             { "단면 감소율", "-", "%" },
-            { "가공경화지수 (n)", "-", "-" },
-            { "강도 계수 (K)", "-", "MPa" },
-            { "스프링백 (Springback)", "-", "-" },
             { "변형률 에너지 밀도 (Toughness)", "-", "MJ/m³" },
             { "레질리언스 계수 (Resilience)", "-", "MJ/m³" },
             { "비례 한계", "-", "MPa" },
@@ -116,7 +113,7 @@ public class ResultPanel extends JPanel {
         // Save Results 버튼 생성
         saveButton = new JButton("결과 저장");
         saveButton.setPreferredSize(new Dimension(120, 35));
-        saveButton.setFont(new Font("Arial", Font.BOLD, 12));
+        saveButton.setFont(new Font("Dialog", Font.BOLD, 12));
         saveButton.setBackground(new Color(76, 175, 80)); // 녹색
         saveButton.setForeground(Color.WHITE);
         saveButton.setFocusPainted(false);
@@ -146,7 +143,7 @@ public class ResultPanel extends JPanel {
 
         // 타이틀 레이블
         titleLabel = new JLabel("분석 결과");
-        titleLabel.setFont(new Font("Arial", Font.BOLD, 14));
+        titleLabel.setFont(new Font("Dialog", Font.BOLD, 14));
         titleLabel.setBorder(BorderFactory.createEmptyBorder(0, 0, 5, 0));
         add(titleLabel, BorderLayout.NORTH);
 
@@ -377,10 +374,6 @@ public class ResultPanel extends JPanel {
         updateValueByProperty("파괴 응력", String.format("%.3f", currentResult.getFractureStress()));
         updateValueByProperty("파괴 변형률", String.format("%.4f", currentResult.getFractureStrain()));
 
-        // 신규 추가된 주요 물성치 표시
-        updateValueByProperty("가공경화지수", String.format("%.3f", currentResult.getStrainHardeningExponent()));
-        updateValueByProperty("강도 계수", String.format("%.1f", currentResult.getStrengthCoefficient()));
-        updateValueByProperty("스프링백", String.format("%.4f", currentResult.getSpringback()));
     }
 
     public void updateResults(Object[][] results) {

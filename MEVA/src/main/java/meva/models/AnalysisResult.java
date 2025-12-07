@@ -41,9 +41,6 @@ public class AnalysisResult {
     private double uniformElongation; // 균일 연신율 (Uniform Elongation)
     private double fractureStress; // 파괴 응력 (MPa)
     private double fractureStrain; // 파괴 변형률
-    private double strainHardeningExponent; // 가공경화지수 (n)
-    private double strengthCoefficient; // 강도 계수 (K) (MPa)
-    private double springback; // 스프링백 (Elastic Recovery)
 
     // 생성자
     public AnalysisResult() {
@@ -232,30 +229,6 @@ public class AnalysisResult {
 
     public void setFractureStrain(double fractureStrain) {
         this.fractureStrain = fractureStrain;
-    }
-
-    public double getStrainHardeningExponent() {
-        return strainHardeningExponent;
-    }
-
-    public void setStrainHardeningExponent(double strainHardeningExponent) {
-        this.strainHardeningExponent = strainHardeningExponent;
-    }
-
-    public double getStrengthCoefficient() {
-        return strengthCoefficient;
-    }
-
-    public void setStrengthCoefficient(double strengthCoefficient) {
-        this.strengthCoefficient = strengthCoefficient;
-    }
-
-    public double getSpringback() {
-        return springback;
-    }
-
-    public void setSpringback(double springback) {
-        this.springback = springback;
     }
 
     public double getUniformElongation() {
