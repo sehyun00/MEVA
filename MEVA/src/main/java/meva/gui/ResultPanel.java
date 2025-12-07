@@ -1,5 +1,3 @@
-// src/main/java/meva/gui/ResultPanel.java
-
 package meva.gui;
 
 import javax.swing.*;
@@ -13,6 +11,8 @@ import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import meva.education.GlossaryManager;
+import javax.swing.event.ListSelectionEvent;
+import javax.swing.event.ListSelectionListener;
 
 /**
  * 계산 결과를 표시하는 패널
@@ -30,6 +30,10 @@ public class ResultPanel extends JPanel {
     private JButton saveButton; // 결과를 CSV 파일로 저장하는 버튼
     private JCheckBox unitToggle; // [New] 에너지 단위 변환 토글 (MJ/m³ <-> J/mm³)
     private JLabel titleLabel; // 패널 제목 레이블 (동적 변경용)
+
+    // [New] 수식 표시용 패널 (Refactored)
+    private FormulaPanel formulaPanel;
+    private JScrollPane formulaScrollPane;
 
     // 외부 리스너
     private ActionListener saveButtonListener;
@@ -78,7 +82,6 @@ public class ResultPanel extends JPanel {
             }
         };
 
-        // 테이블 생성 및 설정
         // 테이블 생성 및 설정 (툴팁 기능 추가를 위해 익명 클래스 사용)
         resultsTable = new JTable(tableModel) {
             @Override
@@ -98,6 +101,33 @@ public class ResultPanel extends JPanel {
             }
         };
         resultsTable.setRowHeight(25);
+
+        // [New] 테이블 행 선택 리스너 추가 (수식 표시)
+        resultsTable.getSelectionModel().addListSelectionListener(new ListSelectionListener() {
+            @Override
+            public void valueChanged(ListSelectionEvent e) {
+                if (!e.getValueIsAdjusting()) {
+                    int selectedRow = resultsTable.getSelectedRow();
+                    if (selectedRow != -1 && formulaPanel != null && currentResult != null) {
+                        String propertyName = (String) resultsTable.getValueAt(selectedRow, 0);
+
+                        // FormulaPanel에 현재 옵션 상태 전달
+                        boolean useUpperYield = (lastYieldMode == 2);
+                        formulaPanel.setOptions(lastIsTrueStress, lastUseTriangleResilience, useUpperYield);
+
+                        // 테이블에 표시된 값을 파싱하여 전달 (불일치 방지)
+                        double displayedValue = parseDisplayedValue(selectedRow);
+                        formulaPanel.updateFormula(propertyName, currentResult, displayedValue);
+                    }
+                }
+            }
+        });
+
+        // [New] 수식 패널 초기화 (Refactored to use FormulaPanel)
+        formulaPanel = new FormulaPanel();
+
+        formulaScrollPane = new JScrollPane(formulaPanel);
+        formulaScrollPane.setPreferredSize(new Dimension(0, 200)); // Height regarding two formulas
         resultsTable.setFont(new Font("Malgun Gothic", Font.PLAIN, 12));
         resultsTable.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
 
@@ -105,9 +135,9 @@ public class ResultPanel extends JPanel {
         JTableHeader header = resultsTable.getTableHeader();
         header.setFont(new Font("Malgun Gothic", Font.BOLD, 12));
         header.setBackground(new Color(230, 230, 230));
-        header.setReorderingAllowed(false); // 컨럼 순서 변경 불가
+        header.setReorderingAllowed(false); // 컬럼 순서 변경 불가
 
-        // 컨럼 너비 설정
+        // 컬럼 너비 설정
         resultsTable.getColumnModel().getColumn(0).setPreferredWidth(180); // Property
         resultsTable.getColumnModel().getColumn(1).setPreferredWidth(100); // Value
         resultsTable.getColumnModel().getColumn(2).setPreferredWidth(60); // Unit
@@ -123,30 +153,17 @@ public class ResultPanel extends JPanel {
             useJouleMM3 = unitToggle.isSelected();
             // 현재 결과가 있으면 즉시 업데이트
             if (currentResult != null) {
-                // 기존 모드 정보(GraphPanel과 연동된 상태)를 유지해야 함
-                // 여기서는 단순히 재계산 요청 없이 현재 Result 객체로 다시 그리기만 수행
-                // 단, MainFrame이나 GraphPanel로부터 현재 True/Eng, YieldMode 상태를 알 수 없으면
-                // 기본값으로 덮어써질 위험이 있음.
-                // 따라서 updateMode 호출 대신 화면 갱신만 처리하도록 리팩토링 필요하지만,
-                // ResultPanel이 상태(isTrueStress 등)를 저장하고 있지 않다면 한계가 있음.
-                // 일단 기본값으로 redraw 하거나, 외부에서 update 요청을 받도록 설계해야 함.
-                // 여기서는 "값만 변환"하는 가벼운 refresh 메서드를 호출하거나,
-                // updateMode에 저장된 상태 필드를 추가하여 활용.
                 refreshValues();
             }
         });
 
         // Save Results 버튼 생성
-        // Save Results 버튼 생성
         saveButton = new JButton("결과 파일 내보내기 (CSV)");
         saveButton.setPreferredSize(new Dimension(180, 35)); // 너비 확장
         saveButton.setFont(new Font("Dialog", Font.BOLD, 12));
-        // [User Request] 기존 녹색 배경 제거 및 기본 스타일 적용 (Modern & Clean)
         saveButton.setFocusPainted(false);
         saveButton.addActionListener(e -> {
-            // CSV 로 저장
             saveResultsToCSV();
-            // 외부 리스너 호출 (DB 저장)
             if (saveButtonListener != null) {
                 saveButtonListener.actionPerformed(e);
             }
@@ -160,11 +177,10 @@ public class ResultPanel extends JPanel {
         setLayout(new BorderLayout(5, 5));
         setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
 
-        // 의도: 결과 테이블의 모든 컬럼(Property, Value, Unit)이 잘리지 않고 보이도록 최소 너비 확보
-        // 컬럼 너비 합계(180+100+60 = 340) + 스크롤바 및 여백 고려
-        setMinimumSize(new Dimension(300, 0));
-        // 의도: 초기 실행 시 최소 너비(300px)로 시작하도록 설정
-        setPreferredSize(new Dimension(300, 0));
+        // [User Request] 좌우 너비 조절 한계 완화 (Min size reduced)
+        setMinimumSize(new Dimension(150, 0));
+        // 의도: 초기 실행 시 너비(350px)로 시작하도록 설정
+        setPreferredSize(new Dimension(350, 0));
 
         // 타이틀 레이블
         titleLabel = new JLabel("분석 결과");
@@ -179,7 +195,12 @@ public class ResultPanel extends JPanel {
         add(topPanel, BorderLayout.NORTH);
 
         // 테이블 (중앙)
-        add(scrollPane, BorderLayout.CENTER);
+        // [Modified] JSplitPane 사용 (테이블 + 수식)
+        JSplitPane splitPane = new JSplitPane(JSplitPane.VERTICAL_SPLIT, scrollPane, formulaScrollPane);
+        splitPane.setResizeWeight(0.6); // 테이블에 60% 공간 할당 (수식 공간 확보)
+        splitPane.setDividerLocation(350); // 초기 분할 위치
+
+        add(splitPane, BorderLayout.CENTER);
 
         // 버튼 패널 (하단)
         JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 5));
@@ -255,7 +276,6 @@ public class ResultPanel extends JPanel {
             // 파일 저장
             try (FileWriter writer = new FileWriter(fileToSave)) {
                 // 헤더 정보 작성
-                // 헤더 정보 작성
                 writer.write("MEVA - Materials Engineering Visualization and Analysis\n");
                 writer.write("Results Export\n");
                 writer.write("Export Date: " + new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date()) + "\n");
@@ -315,19 +335,11 @@ public class ResultPanel extends JPanel {
 
     /**
      * 현재 모드 설정에 따라 테이블 값을 갱신합니다. (레거시 호환용)
-     * 기본 항복점 모드(Auto=0)를 사용합니다.
      */
     public void updateMode(boolean isTrueStress, boolean useTriangleResilience) {
         updateMode(isTrueStress, useTriangleResilience, 0); // 0: Auto
     }
 
-    /**
-     * 현재 모드 설정에 따라 테이블 값을 갱신합니다.
-     * 
-     * @param isTrueStress          True Stress 모드 여부
-     * @param useTriangleResilience 탄성 에너지 삼각형 모드 여부
-     * @param yieldMode             선택된 항복점 모드 (0:Auto, 1:Offset, 2:Upper/Lower)
-     */
     // 현재 표시 모드 상태 저장
     private boolean lastIsTrueStress;
     private boolean lastUseTriangleResilience;
@@ -347,7 +359,6 @@ public class ResultPanel extends JPanel {
         String modeText = isTrueStress ? "(True)" : "(Engineering)";
         setTitleText("분석 결과 " + modeText);
 
-        // 1. 공통 값 (True/Eng 차이가 없거나 미미한 것들)
         // 1. 공통 값
         updateValueByProperty("연신율", String.format("%.2f", currentResult.getElongation()));
         updateValueByProperty("단면 감소율", String.format("%.2f", currentResult.getReductionOfArea()));
@@ -369,7 +380,6 @@ public class ResultPanel extends JPanel {
             double uts = isTrueStress ? utsPt.getTrueStress() : utsPt.getEngineeringStress();
             updateValueByProperty("극한 인장 강도", String.format("%.3f", uts));
             double utsStrain = isTrueStress ? utsPt.getTrueStrain() : utsPt.getEngineeringStrain();
-            // TODO: 추후 uniformElongation 필드가 모델에 추가되면 getter 사용 고려
             updateValueByProperty("균일 연신율", String.format("%.4f", utsStrain));
         }
 
@@ -391,7 +401,6 @@ public class ResultPanel extends JPanel {
                         : currentResult.getOffsetYieldPoint().getEngineeringStress();
             }
         } else { // Auto (0)
-            // Auto 모드에서는 AnalysisResult의 yieldType을 따름
             if (currentResult.getYieldType() == meva.models.AnalysisResult.YieldType.DISCONTINUOUS) {
                 isDiscontinuousMode = true;
                 if (currentResult.getUpperYieldPoint() != null) {
@@ -399,14 +408,13 @@ public class ResultPanel extends JPanel {
                             : currentResult.getUpperYieldPoint().getEngineeringStress();
                 }
             } else {
-                // Offset Point 우선
                 if (!isTrueStress && currentResult.getOffsetYieldPointEng() != null) {
                     yieldStr = currentResult.getOffsetYieldPointEng().getEngineeringStress();
                 } else if (currentResult.getOffsetYieldPoint() != null) {
                     yieldStr = isTrueStress ? currentResult.getOffsetYieldPoint().getTrueStress()
                             : currentResult.getOffsetYieldPoint().getEngineeringStress();
                 } else {
-                    yieldStr = currentResult.getYieldStrength(); // Fallback
+                    yieldStr = currentResult.getYieldStrength();
                 }
             }
         }
@@ -421,11 +429,10 @@ public class ResultPanel extends JPanel {
             }
         } else {
             // Integral Mode: 실제 적분값 사용
-            // [Fix] 화면에 표시된 항복 모드와 일치하는 적분값 사용
             if (isDiscontinuousMode) {
-                resilience = currentResult.getResilienceIntegral(); // UYP 기준 (넓은 범위)
+                resilience = currentResult.getResilienceIntegral(); // UYP 기준
             } else {
-                resilience = currentResult.getResilienceIntegralOffset(); // Offset 기준 (좁은 범위)
+                resilience = currentResult.getResilienceIntegralOffset(); // Offset 기준
             }
         }
         // 레질리언스 (단위 변환 적용)
@@ -437,7 +444,6 @@ public class ResultPanel extends JPanel {
         updateValueByProperty("파괴 변형률", String.format("%.4f", currentResult.getFractureStrain()));
 
         // [New] 소성 연신율 (Plastic Elongation) 계산
-        // ε_p = ε_f - (σ_f / E)
         double fractureStrain = currentResult.getFractureStrain();
         double fractureStress = currentResult.getFractureStress(); // MPa
         if (E_GPa > 0) {
@@ -448,7 +454,6 @@ public class ResultPanel extends JPanel {
         } else {
             updateValueByProperty("소성 연신율 (Plastic Elongation)", "-");
         }
-
     }
 
     public void updateResults(Object[][] results) {
@@ -465,24 +470,12 @@ public class ResultPanel extends JPanel {
         tableModel.fireTableDataChanged();
     }
 
-    /**
-     * 특정 행의 결과값을 업데이트합니다.
-     * 
-     * @param row   행 인덱스
-     * @param value 설정할 값
-     */
     public void updateValue(int row, Object value) {
         if (row >= 0 && row < tableModel.getRowCount()) {
             tableModel.setValueAt(value, row, 1); // Value 컨럼 (1번 인덱스)
         }
     }
 
-    /**
-     * 특정 속성명으로 결과값을 업데이트합니다.
-     * 
-     * @param property 속성명
-     * @param value    설정할 값
-     */
     public void updateValueByProperty(String property, Object value) {
         for (int i = 0; i < tableModel.getRowCount(); i++) {
             String prop = tableModel.getValueAt(i, 0).toString();
@@ -493,9 +486,6 @@ public class ResultPanel extends JPanel {
         }
     }
 
-    /**
-     * 모든 결과를 초기 상태("-")로 리셋합니다.
-     */
     public void clearResults() {
         for (int i = 0; i < tableModel.getRowCount(); i++) {
             tableModel.setValueAt("-", i, 1);
@@ -503,31 +493,17 @@ public class ResultPanel extends JPanel {
         tableModel.fireTableDataChanged();
     }
 
-    /**
-     * 테이블 모델을 반환합니다.
-     * 
-     * @return DefaultTableModel 객체
-     */
     public DefaultTableModel getTableModel() {
         return tableModel;
     }
 
-    /**
-     * 결과 테이블을 반환합니다.
-     * 
-     * @return JTable 객체
-     */
     public JTable getResultsTable() {
         return resultsTable;
     }
 
-    /**
-     * 특정 행의 배경을 깜빡이게 하여 값이 변경되었음을 알림
-     */
     public void flashRows(int[] rowIndices) {
         new Thread(() -> {
             try {
-                // 임시로 다중 선택 모드로 변경 (여러 행 동시 강조를 위해)
                 int originalMode = resultsTable.getSelectionModel().getSelectionMode();
                 SwingUtilities.invokeLater(
                         () -> resultsTable.setSelectionMode(ListSelectionModel.MULTIPLE_INTERVAL_SELECTION));
@@ -547,7 +523,6 @@ public class ResultPanel extends JPanel {
                     Thread.sleep(150);
                 }
 
-                // 선택 모드 복구
                 SwingUtilities.invokeLater(() -> resultsTable.setSelectionMode(originalMode));
 
             } catch (Exception e) {
@@ -556,57 +531,34 @@ public class ResultPanel extends JPanel {
         }).start();
     }
 
-    /**
-     * Save 버튼의 외부 리스너를 설정합니다.
-     * 
-     * @param listener 리스너
-     */
     public void setSaveButtonListener(ActionListener listener) {
         this.saveButtonListener = listener;
     }
 
-    /**
-     * 패널의 제목 텍스트를 변경합니다.
-     * 
-     * @param text 새로운 제목
-     */
     public void setTitleText(String text) {
         if (titleLabel != null) {
             titleLabel.setText(text);
         }
-
     }
 
-    /**
-     * [New] 현재 저장된 상태를 바탕으로 값만 새로고침 (단위 토글 용)
-     */
     private void refreshValues() {
         updateMode(lastIsTrueStress, lastUseTriangleResilience, lastYieldMode);
     }
 
-    /**
-     * [New] 에너지 값(MJ/m³)을 현재 설정된 단위로 변환하여 테이블에 표시
-     */
     private void updateEnergyValue(String propertyName, double valueMJ) {
         double displayValue = valueMJ;
         String unit = "MJ/m³";
 
         if (useJouleMM3) {
-            // 1 MJ/m³ = 1 MPa = 1 N/mm² = 1 (N*m)/mm³ * 10^-3 ?
-            // 1 J = 1 N*m. 1 mm³ = 10^-9 m³.
-            // 1 J/mm³ = 10^9 J/m³ = 1000 MJ/m³.
-            // Therefore 1 MJ/m³ = 0.001 J/mm³.
             displayValue = valueMJ * 0.001;
             unit = "J/mm³";
         }
 
-        updateValueByProperty(propertyName, String.format("%.4f", displayValue)); // J/mm³는 값이 작으므로 소수점 4자리
-
-        // 단위 컬럼 업데이트
+        updateValueByProperty(propertyName, String.format("%.4f", displayValue));
         for (int i = 0; i < tableModel.getRowCount(); i++) {
             String prop = tableModel.getValueAt(i, 0).toString();
             if (prop.contains(propertyName)) {
-                tableModel.setValueAt(unit, i, 2); // Unit Column
+                tableModel.setValueAt(unit, i, 2);
                 break;
             }
         }
@@ -614,5 +566,23 @@ public class ResultPanel extends JPanel {
 
     private String getSafeString(String input) {
         return (input != null) ? input : "-";
+    }
+
+    /**
+     * 테이블에서 표시된 값을 파싱하여 double로 반환합니다.
+     * 
+     * @param row 테이블 행 인덱스
+     * @return 파싱된 값, 실패 시 0.0
+     */
+    private double parseDisplayedValue(int row) {
+        try {
+            Object valueObj = tableModel.getValueAt(row, 1);
+            if (valueObj == null || "-".equals(valueObj.toString())) {
+                return 0.0;
+            }
+            return Double.parseDouble(valueObj.toString().replaceAll("[^0-9.\\-]", ""));
+        } catch (NumberFormatException e) {
+            return 0.0;
+        }
     }
 }

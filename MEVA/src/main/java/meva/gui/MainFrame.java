@@ -300,6 +300,7 @@ public class MainFrame extends JFrame {
         // 데이터 준비 (EDT에서 UI 값 읽기)
         final double userArea = inputPanel.getInitialCrossSection();
         final double userLength = inputPanel.getGaugeLength();
+        final double userDiameter = inputPanel.getInitialDiameter(); // [New] For Formula Display
         final Double finalAreaObj = inputPanel.getFinalCrossSectionArea();
         final double finalArea = (finalAreaObj != null) ? finalAreaObj : 0.0;
 
@@ -375,6 +376,22 @@ public class MainFrame extends JFrame {
                     this.analysisResult.setExperimenter(inputPanel.getTesterName());
                     this.analysisResult.setRemarks(inputPanel.getRemarks());
                     this.analysisResult.setTestDate(inputPanel.getTestDate());
+
+                    // [New] Raw Data for Formula Substitution
+                    this.analysisResult.setInitialLength(userLength);
+                    this.analysisResult.setInitialArea(userArea);
+                    this.analysisResult.setFinalArea(finalArea);
+                    this.analysisResult.setInitialDiameter(userDiameter);
+                    // Final Diameter Estimate (assuming circular)
+                    if (finalArea > 0) {
+                        this.analysisResult.setFinalDiameter(Math.sqrt(4 * finalArea / Math.PI));
+                    }
+                    // Max Load Calculation (Derived from UTS * Area) [N]
+                    if (this.analysisResult.getUtsPoint() != null) {
+                        // Use Engineering Stress which is P/A0
+                        double maxStressEng = this.analysisResult.getUtsPoint().getEngineeringStress();
+                        this.analysisResult.setMaxLoad(maxStressEng * userArea);
+                    }
 
                 } catch (IOException e) {
                     errorMessage = "파일 읽기 실패: " + e.getMessage();
@@ -458,72 +475,6 @@ public class MainFrame extends JFrame {
         } catch (Exception e) {
             System.err.println("데이터베이스 저장 오류: " + e.getMessage());
             e.printStackTrace();
-        }
-    }
-
-    /**
-     * Save Results 버튼 클릭 이벤트
-     */
-    private void onSaveResultsClicked() {
-        // 1. 계산된 결과 데이터가 있는지 확인 (테이블 모델에서 확인)
-        if (resultsPanel.getTableModel().getRowCount() == 0 ||
-                resultsPanel.getTableModel().getValueAt(0, 1).equals("-")) {
-            JOptionPane.showMessageDialog(this,
-                    "먼저 Calculate 버튼을 눌러 계산을 수행하세요.",
-                    "계산 필요",
-                    JOptionPane.WARNING_MESSAGE);
-            return;
-        }
-
-        // 2. CSV 파일 저장 다이얼로그 열기
-        JFileChooser fileChooser = new JFileChooser();
-        fileChooser.setDialogTitle("결과 저장 (CSV)");
-
-        // 기본 파일명 설정
-        java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("yyyyMMdd_HHmmss");
-        String timeStamp = sdf.format(new java.util.Date());
-        String defaultFileName = "MEVA_Results_" + timeStamp + ".csv";
-        fileChooser.setSelectedFile(new java.io.File(defaultFileName));
-
-        // CSV 필터 설정
-        fileChooser.setFileFilter(new javax.swing.filechooser.FileNameExtensionFilter("CSV 파일", "csv"));
-
-        int userSelection = fileChooser.showSaveDialog(this);
-
-        // 3. 사용자가 저장을 눌렀을 때 실제 파일 쓰기
-        if (userSelection == JFileChooser.APPROVE_OPTION) {
-            java.io.File fileToSave = fileChooser.getSelectedFile();
-
-            // 확장자가 없으면 자동으로 .csv 붙여주기
-            if (!fileToSave.getAbsolutePath().endsWith(".csv")) {
-                fileToSave = new java.io.File(fileToSave.getAbsolutePath() + ".csv");
-            }
-
-            try (java.io.PrintWriter writer = new java.io.PrintWriter(fileToSave)) {
-                // CSV 헤더 작성
-                writer.println("Property,Value,Unit");
-
-                // 결과 데이터 작성 (테이블 모델에서 읽어오기)
-                javax.swing.table.DefaultTableModel model = resultsPanel.getTableModel();
-                for (int i = 0; i < model.getRowCount(); i++) {
-                    Object prop = model.getValueAt(i, 0);
-                    Object val = model.getValueAt(i, 1);
-                    Object unit = model.getValueAt(i, 2);
-                    writer.println(String.format("\"%s\",\"%s\",\"%s\"", prop, val, unit));
-                }
-
-                JOptionPane.showMessageDialog(this,
-                        "파일이 성공적으로 저장되었습니다:\n" + fileToSave.getAbsolutePath(),
-                        "저장 완료",
-                        JOptionPane.INFORMATION_MESSAGE);
-
-            } catch (IOException e) {
-                e.printStackTrace();
-                JOptionPane.showMessageDialog(this,
-                        "파일 저장 중 오류가 발생했습니다: " + e.getMessage(),
-                        "저장 오류",
-                        JOptionPane.ERROR_MESSAGE);
-            }
         }
     }
 

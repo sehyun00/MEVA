@@ -93,6 +93,13 @@ public class ChartManager {
         chartPanel.setRangePannable(true);
         chartPanel.setBackground(Color.WHITE);
 
+        // [Fix] 패널 크기 제약 완화 (SplitPane으로 자유로운 조절 허용)
+        chartPanel.setMinimumDrawWidth(0);
+        chartPanel.setMinimumDrawHeight(0);
+        chartPanel.setMaximumDrawWidth(20000);
+        chartPanel.setMaximumDrawHeight(20000);
+        chartPanel.setMinimumSize(new Dimension(50, 50));
+
         // 4. 오버레이 생성 및 등록
         areaHighlightOverlay = new AreaHighlightOverlay(chart.getXYPlot());
         crosshairOverlay = new CrosshairOverlay();

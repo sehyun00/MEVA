@@ -48,6 +48,15 @@ public class AnalysisResult {
     private String remarks;
     private String testDate; // YYYY-MM-DD
 
+    // [New] Raw Calculation Data (For Formula Display)
+    private double initialArea;
+    private double finalArea;
+    private double initialLength;
+    private double finalLength;
+    private double initialDiameter;
+    private double finalDiameter;
+    private double maxLoad; // P_max for UTS
+
     // 생성자
     public AnalysisResult() {
     }
@@ -276,5 +285,62 @@ public class AnalysisResult {
 
     public void setTestDate(String testDate) {
         this.testDate = testDate;
+    }
+
+    // [New] Raw Data Getters/Setters
+    public double getInitialArea() {
+        return initialArea;
+    }
+
+    public void setInitialArea(double initialArea) {
+        this.initialArea = initialArea;
+    }
+
+    public double getFinalArea() {
+        return finalArea;
+    }
+
+    public void setFinalArea(double finalArea) {
+        this.finalArea = finalArea;
+    }
+
+    public double getInitialLength() {
+        return initialLength;
+    }
+
+    public void setInitialLength(double initialLength) {
+        this.initialLength = initialLength;
+    }
+
+    public double getFinalLength() {
+        return finalLength;
+    }
+
+    public void setFinalLength(double finalLength) {
+        this.finalLength = finalLength;
+    }
+
+    public double getInitialDiameter() {
+        return initialDiameter;
+    }
+
+    public void setInitialDiameter(double initialDiameter) {
+        this.initialDiameter = initialDiameter;
+    }
+
+    public double getFinalDiameter() {
+        return finalDiameter;
+    }
+
+    public void setFinalDiameter(double finalDiameter) {
+        this.finalDiameter = finalDiameter;
+    }
+
+    public double getMaxLoad() {
+        return maxLoad;
+    }
+
+    public void setMaxLoad(double maxLoad) {
+        this.maxLoad = maxLoad;
     }
 }

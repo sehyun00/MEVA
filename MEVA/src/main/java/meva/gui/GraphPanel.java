@@ -293,6 +293,7 @@ public class GraphPanel extends JPanel implements ChartInputHandler.InteractionL
         setLayout(new BorderLayout());
         setBorder(BorderFactory.createTitledBorder("응력-변형률 곡선"));
         setPreferredSize(new Dimension(800, 600));
+        setMinimumSize(new Dimension(50, 50)); // [Fix] 최소 크기를 작게 설정하여 SplitPane 조절 유연성 확보
 
         add(chartContainerPanel, BorderLayout.CENTER);
         add(graphControlPanel, BorderLayout.SOUTH);
