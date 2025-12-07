@@ -30,9 +30,17 @@ public class InputPanel extends JPanel {
 
     // 하위 패널들
     private JPanel specimenDimensionsPanel; // 시편 치수 입력 영역을 담는 패널
+    private JPanel testConditionPanel; // [New] 실험 조건 입력 패널
     private JPanel controlButtonsPanel; // 계산, 초기화 등 제어 버튼을 담는 패널
     private JPanel fileUploadPanel; // 데이터 파일 선택 및 경로 표시 패널
-    private JPanel presetManagementPanel; // 입력값 프리셋 저장/로드 관리 패널
+
+    // 실험 조건 입력 필드들
+    private JTextField materialNameField;
+    private JTextField testDateField;
+    private JTextField testerNameField;
+    // private JTextField testMethodField; // Removed
+    private JTextField finalAreaField;
+    private JTextField remarksField;
 
     // 시편 치수 입력 필드들 (봉재용)
     private JTextField diameterField; // 시편의 초기 직경 (D₀) 입력
@@ -47,20 +55,9 @@ public class InputPanel extends JPanel {
     private JButton calculateButton; // 입력된 데이터로 시뮬레이션 및 결과 계산 실행
 
     private JButton resetButton; // 모든 입력 필드 및 상태 초기화
-    private JButton clearGraphButton; // 그래프 영역만 초기화
-
-    // 프리셋 관리 컴포넌트
-    private JComboBox<String> presetComboBox; // 저장된 프리셋 목록 선택
-    private JButton savePresetButton; // 현재 입력값을 새 프리셋으로 저장
-    private JButton deletePresetButton; // 선택된 프리셋 삭제
-
     // 이벤트 리스너들
     private ActionListener calculateListener;
     private ActionListener resetListener;
-    private ActionListener clearGraphListener;
-    private ActionListener presetChangedListener;
-    private ActionListener savePresetListener;
-    private ActionListener deletePresetListener;
 
     /**
      * InputPanel 생성자
@@ -74,6 +71,9 @@ public class InputPanel extends JPanel {
      * 모든 컴포넌트 초기화
      */
     private void initializeComponents() {
+        // 실험 조건 패널 초기화 [New]
+        testConditionPanel = createTestConditionPanel();
+
         // 시편 치수 패널 초기화
         specimenDimensionsPanel = createSpecimenDimensionsPanel();
 
@@ -81,9 +81,8 @@ public class InputPanel extends JPanel {
         controlButtonsPanel = createControlButtonsPanel();
 
         // 데이터 파일 업로드 초기화
+        // 데이터 파일 업로드 초기화
         fileUploadPanel = createFileUploadPanel();
-        // 프리셋 관리 패널 초기화
-        presetManagementPanel = createPresetManagementPanel();
     }
 
     /**
@@ -93,9 +92,12 @@ public class InputPanel extends JPanel {
         // JTabbedPane 생성
         JTabbedPane tabbedPane = new JTabbedPane();
 
-        // Tab 1: 새 실험 (기존 패널들)
+        // Tab 1: 새 실험 (기존 패널들) - 스크롤 추가
         JPanel newExperimentPanel = createNewExperimentPanel();
-        tabbedPane.addTab("📂 새 실험", newExperimentPanel);
+        JScrollPane newExperimentScroll = new JScrollPane(newExperimentPanel);
+        newExperimentScroll.setBorder(null); // 중복 테두리 제거
+        newExperimentScroll.getVerticalScrollBar().setUnitIncrement(16); // 스크롤 속도 개선
+        tabbedPane.addTab("📂 새 실험", newExperimentScroll);
 
         // Tab 2: 이전 실험 불러오기
         JPanel loadExperimentPanel = createLoadExperimentPanel();
@@ -106,9 +108,9 @@ public class InputPanel extends JPanel {
         add(tabbedPane, BorderLayout.CENTER);
         setBorder(BorderFactory.createEmptyBorder(15, 15, 15, 15));
 
-        // 패널의 너비 설정
-        setPreferredSize(new Dimension(280, 0));
-        setMinimumSize(new Dimension(280, 0));
+        // 패널의 너비 설정 (증가: 280 -> 350)
+        setPreferredSize(new Dimension(350, 0));
+        setMinimumSize(new Dimension(350, 0));
     }
 
     /**
@@ -119,6 +121,8 @@ public class InputPanel extends JPanel {
         panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
 
         // 기존 패널들 추가
+        panel.add(testConditionPanel); // [New] 최상단 배치
+        panel.add(Box.createRigidArea(new Dimension(0, 10)));
         panel.add(specimenDimensionsPanel);
         panel.add(Box.createRigidArea(new Dimension(0, 20)));
 
@@ -127,8 +131,6 @@ public class InputPanel extends JPanel {
 
         panel.add(controlButtonsPanel);
         panel.add(Box.createRigidArea(new Dimension(0, 20)));
-
-        panel.add(presetManagementPanel);
 
         return panel;
     }
@@ -151,13 +153,15 @@ public class InputPanel extends JPanel {
         searchPanel.add(searchField);
         filterPanel.add(searchPanel);
 
-        // 날짜 필터
+        // 날짜 필터 (올해 1월 1일 ~ 12월 31일 자동 설정)
         JPanel datePanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
         datePanel.add(new JLabel("📅 기간:"));
-        JTextField startDateField = new JTextField("2025-01-01", 10);
+
+        int currentYear = java.time.LocalDate.now().getYear();
+        JTextField startDateField = new JTextField(currentYear + "-01-01", 10);
         datePanel.add(startDateField);
         datePanel.add(new JLabel("~"));
-        JTextField endDateField = new JTextField("2025-12-31", 10);
+        JTextField endDateField = new JTextField(currentYear + "-12-31", 10);
         datePanel.add(endDateField);
         filterPanel.add(datePanel);
 
@@ -284,13 +288,31 @@ public class InputPanel extends JPanel {
         meva.models.Experiment exp = dao.getExperimentById(experimentId);
 
         if (exp != null) {
-            // Tab 1의 입력 필드에 데이터 채우기
+            // Tab 1의 입력 필드에 데이터 채우기 (모든 필드 복원)
+            materialNameField.setText(exp.getMaterialName() != null ? exp.getMaterialName() : "");
+            testDateField.setText(exp.getTestDate() != null ? exp.getTestDate() : "");
+            testerNameField.setText(exp.getTesterName() != null ? exp.getTesterName() : "");
+            // testMethodField.setText(exp.getTestMethod() != null ? exp.getTestMethod() :
+            // ""); // Removed
+            remarksField.setText(exp.getRemarks() != null ? exp.getRemarks() : "");
+
             diameterField.setText(String.valueOf(exp.getSpecimenDiameter()));
             gaugeLengthField.setText(String.valueOf(exp.getGaugeLength()));
+
+            if (exp.getFinalCrossSectionArea() != null) {
+                finalAreaField.setText(String.valueOf(exp.getFinalCrossSectionArea()));
+            } else {
+                finalAreaField.setText("");
+            }
 
             if (exp.getDataFilePath() != null && !exp.getDataFilePath().isEmpty()) {
                 selectedFilePath = exp.getDataFilePath();
                 filePathLabel.setText("파일: " + new java.io.File(exp.getDataFilePath()).getName());
+                filePathLabel.setForeground(new Color(0, 0, 139));
+            } else {
+                selectedFilePath = null;
+                filePathLabel.setText("파일이 선택되지 않음");
+                filePathLabel.setForeground(Color.GRAY);
             }
 
             // Tab 1로 전환
@@ -302,10 +324,8 @@ public class InputPanel extends JPanel {
                 ((JTabbedPane) parent).setSelectedIndex(0); // 첫 번째 탭으로 이동
             }
 
-            JOptionPane.showMessageDialog(this,
-                    "실험 ID " + experimentId + "를 불러왔습니다.\\nCalculate 버튼을 눌러 그래프를 확인하세요.",
-                    "불러오기 완료",
-                    JOptionPane.INFORMATION_MESSAGE);
+            // 팝업 제거: 흐름 방해 최소화
+            System.out.println("Experiment " + experimentId + " loaded successfully.");
         } else {
             JOptionPane.showMessageDialog(this,
                     "실험 데이터를 찾을 수 없습니다.",
@@ -360,11 +380,91 @@ public class InputPanel extends JPanel {
     }
 
     /**
+     * 실험 조건 입력 패널 생성 [New]
+     * 사용자 요청에 따라 Material, Date, Tester, Method, Final Area, Description 입력 필드 추가
+     */
+    private JPanel createTestConditionPanel() {
+        JPanel panel = new JPanel(new GridBagLayout());
+        panel.setBorder(BorderFactory.createTitledBorder("실험 정보"));
+
+        GridBagConstraints gbc = new GridBagConstraints();
+        gbc.fill = GridBagConstraints.HORIZONTAL;
+        gbc.insets = new Insets(4, 4, 4, 4);
+        gbc.weightx = 1.0;
+
+        // 1. Material Name
+        gbc.gridx = 0;
+        gbc.gridy = 0;
+        gbc.weightx = 0.3;
+        panel.add(new JLabel("재료명:"), gbc);
+
+        gbc.gridx = 1;
+        gbc.gridy = 0;
+        gbc.weightx = 0.7;
+        materialNameField = new JTextField(""); // Blank default
+        materialNameField.setToolTipText("재료명을 입력하세요");
+        panel.add(materialNameField, gbc);
+
+        // 2. Test Date
+        gbc.gridx = 0;
+        gbc.gridy = 1;
+        gbc.weightx = 0.3;
+        panel.add(new JLabel("시험 일시:"), gbc);
+
+        gbc.gridx = 1;
+        gbc.gridy = 1;
+        gbc.weightx = 0.7;
+        java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+        testDateField = new JTextField(sdf.format(new java.util.Date()));
+        panel.add(testDateField, gbc);
+
+        // 3. Tester Name
+        gbc.gridx = 0;
+        gbc.gridy = 2;
+        gbc.weightx = 0.3;
+        panel.add(new JLabel("시험자:"), gbc);
+
+        gbc.gridx = 1;
+        gbc.gridy = 2;
+        gbc.weightx = 0.7;
+        testerNameField = new JTextField(""); // Blank default
+        panel.add(testerNameField, gbc);
+
+        // 4. Test Method (Removed as it's always Tensile Test)
+        /*
+         * gbc.gridx = 0;
+         * gbc.gridy = 3;
+         * gbc.weightx = 0.3;
+         * panel.add(new JLabel("시험 방법:"), gbc);
+         * 
+         * gbc.gridx = 1;
+         * gbc.gridy = 3;
+         * gbc.weightx = 0.7;
+         * testMethodField = new JTextField("Tensile Test");
+         * panel.add(testMethodField, gbc);
+         */
+
+        // 5. Remarks / Description (Moved up -> Now index 3)
+        gbc.gridx = 0;
+        gbc.gridy = 3; // Adjusted gridy
+        gbc.weightx = 0.3;
+        panel.add(new JLabel("비고:"), gbc);
+
+        gbc.gridx = 1;
+        gbc.gridy = 3; // Adjusted gridy
+        gbc.weightx = 0.7;
+        remarksField = new JTextField("");
+        panel.add(remarksField, gbc);
+
+        return panel;
+    }
+
+    /**
      * 시편 치수 패널 생성 (봉재용)
      */
     private JPanel createSpecimenDimensionsPanel() {
         JPanel panel = new JPanel(new GridBagLayout());
-        panel.setBorder(BorderFactory.createTitledBorder("Specimen Dimensions (Round Bar)"));
+        panel.setBorder(BorderFactory.createTitledBorder("시편 및 단면적 정보"));
 
         GridBagConstraints gbc = new GridBagConstraints();
         gbc.fill = GridBagConstraints.HORIZONTAL;
@@ -375,8 +475,8 @@ public class InputPanel extends JPanel {
         gbc.gridy = 0;
         panel.add(new JLabel("초기 직경 (D₀):"), gbc);
         gbc.gridx = 1;
-        diameterField = new JTextField("10.0", 10);
-        diameterField.setFont(new Font("Monospaced", Font.PLAIN, 12));
+        diameterField = new JTextField("", 10); // Blank default
+        // diameterField.setFont(new Font("Monospaced", Font.PLAIN, 12)); // 기본 폰트 사용
         panel.add(diameterField, gbc);
         gbc.gridx = 2;
         panel.add(new JLabel("mm"), gbc);
@@ -386,11 +486,23 @@ public class InputPanel extends JPanel {
         gbc.gridy = 1;
         panel.add(new JLabel("초기 게이지 길이 (L₀):"), gbc);
         gbc.gridx = 1;
-        gaugeLengthField = new JTextField("50.0", 10);
-        gaugeLengthField.setFont(new Font("Monospaced", Font.PLAIN, 12));
+        gaugeLengthField = new JTextField("", 10); // Blank default
+        // gaugeLengthField.setFont(new Font("Monospaced", Font.PLAIN, 12)); // 기본 폰트 사용
         panel.add(gaugeLengthField, gbc);
         gbc.gridx = 2;
         panel.add(new JLabel("mm"), gbc);
+
+        // 최종 단면적 (Af) [Moved from Test Conditions]
+        gbc.gridx = 0;
+        gbc.gridy = 2;
+        panel.add(new JLabel("최종 단면적 (Af):"), gbc);
+        gbc.gridx = 1;
+        finalAreaField = new JTextField(""); // Empty by default
+        finalAreaField.setFont(new Font("Monospaced", Font.PLAIN, 12));
+        finalAreaField.setToolTipText("파단 후 단면적 입력 (단면 감소율 계산용)");
+        panel.add(finalAreaField, gbc);
+        gbc.gridx = 2;
+        panel.add(new JLabel("mm²"), gbc);
 
         return panel;
     }
@@ -419,6 +531,7 @@ public class InputPanel extends JPanel {
             if (result == JFileChooser.APPROVE_OPTION) {
                 selectedFilePath = fileChooser.getSelectedFile().getAbsolutePath();
                 filePathLabel.setText("파일: " + fileChooser.getSelectedFile().getName());
+                filePathLabel.setForeground(new Color(0, 0, 139)); // 진한 파란색으로 변경 (강조)
             }
         });
         panel.add(loadFileButton, gbc);
@@ -427,7 +540,7 @@ public class InputPanel extends JPanel {
         gbc.gridx = 1;
         gbc.gridwidth = 2;
         filePathLabel = new JLabel("파일이 선택되지 않음");
-        filePathLabel.setFont(new Font("Dialog", Font.PLAIN, 11));
+        filePathLabel.setFont(new Font("Dialog", Font.BOLD, 12)); // Bold font
         filePathLabel.setForeground(Color.GRAY);
         panel.add(filePathLabel, gbc);
 
@@ -441,86 +554,64 @@ public class InputPanel extends JPanel {
         JPanel panel = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 10));
 
         // Calculate 버튼
-        calculateButton = new JButton("Calculate");
-        calculateButton.setPreferredSize(new Dimension(100, 30));
-        calculateButton.setBackground(new Color(33, 150, 243)); // Primary 색상
-        calculateButton.setForeground(Color.WHITE);
-        calculateButton.setFont(new Font("Dialog", Font.BOLD, 12));
+        // 스타일 제거: 기본 시스템 Look & Feel 따름
+        calculateButton = new JButton("계산 (Calculate)");
+        calculateButton.setPreferredSize(new Dimension(140, 35));
+
         calculateButton.addActionListener(e -> {
-            if (calculateListener != null)
+            if (validateInputs() && calculateListener != null) {
                 calculateListener.actionPerformed(e);
+            }
         });
 
         // Reset 버튼
-        resetButton = new JButton("Reset");
-        resetButton.setPreferredSize(new Dimension(100, 30));
+        resetButton = new JButton("초기화 (Reset)");
+        resetButton.setPreferredSize(new Dimension(120, 35));
         resetButton.addActionListener(e -> {
             if (resetListener != null)
                 resetListener.actionPerformed(e);
         });
 
-        // Clear Graph 버튼
-        clearGraphButton = new JButton("Clear Graph");
-        clearGraphButton.setPreferredSize(new Dimension(100, 30));
-        clearGraphButton.addActionListener(e -> {
-            if (clearGraphListener != null)
-                clearGraphListener.actionPerformed(e);
-        });
-
         panel.add(calculateButton);
         panel.add(resetButton);
-        panel.add(clearGraphButton);
 
         return panel;
     }
 
     /**
-     * 프리셋 관리 패널 생성
+     * 입력값 유효성 검사
+     * 
+     * @return 유효한 경우 true, 아니면 false (경고창 표시)
      */
-    private JPanel createPresetManagementPanel() {
-        JPanel panel = new JPanel(new GridBagLayout());
-        panel.setBorder(BorderFactory.createTitledBorder("Preset Management"));
+    private boolean validateInputs() {
+        try {
+            double d = Double.parseDouble(diameterField.getText());
+            if (d <= 0)
+                throw new NumberFormatException();
+        } catch (NumberFormatException e) {
+            JOptionPane.showMessageDialog(this,
+                    "초기 직경(Diameter)은 0보다 큰 숫자여야 합니다.",
+                    "입력 오류", JOptionPane.WARNING_MESSAGE);
+            diameterField.requestFocus();
+            return false;
+        }
 
-        GridBagConstraints gbc = new GridBagConstraints();
-        gbc.fill = GridBagConstraints.HORIZONTAL;
-        gbc.insets = new Insets(5, 5, 5, 5);
+        try {
+            double l = Double.parseDouble(gaugeLengthField.getText());
+            if (l <= 0)
+                throw new NumberFormatException();
+        } catch (NumberFormatException e) {
+            JOptionPane.showMessageDialog(this,
+                    "게이지 길이(Gauge Length)는 0보다 큰 숫자여야 합니다.",
+                    "입력 오류", JOptionPane.WARNING_MESSAGE);
+            gaugeLengthField.requestFocus();
+            return false;
+        }
 
-        // 프리셋 선택
-        gbc.gridx = 0;
-        gbc.gridy = 0;
-        panel.add(new JLabel("Preset:"), gbc);
-        gbc.gridx = 1;
-        gbc.gridwidth = 2;
-        String[] presets = { "Standard Round (Default)", "Custom" };
-        presetComboBox = new JComboBox<>(presets);
-        presetComboBox.addActionListener(e -> {
-            if (presetChangedListener != null)
-                presetChangedListener.actionPerformed(e);
-        });
-        panel.add(presetComboBox, gbc);
-
-        // 저장 버튼
-        gbc.gridx = 0;
-        gbc.gridy = 1;
-        gbc.gridwidth = 1;
-        savePresetButton = new JButton("Save");
-        savePresetButton.addActionListener(e -> {
-            if (savePresetListener != null)
-                savePresetListener.actionPerformed(e);
-        });
-        panel.add(savePresetButton, gbc);
-
-        // 삭제 버튼
-        gbc.gridx = 1;
-        deletePresetButton = new JButton("Delete");
-        deletePresetButton.addActionListener(e -> {
-            if (deletePresetListener != null)
-                deletePresetListener.actionPerformed(e);
-        });
-        panel.add(deletePresetButton, gbc);
-
-        return panel;
+        return true;
     }
+
+    // [Deleted] createPresetManagementPanel
 
     // ========== 입력값 가져오기 메서드들 ==========
 
@@ -546,6 +637,38 @@ public class InputPanel extends JPanel {
         }
     }
 
+    public String getMaterialName() {
+        return materialNameField.getText();
+    }
+
+    public String getTestDate() {
+        return testDateField.getText();
+    }
+
+    public String getTesterName() {
+        return testerNameField.getText();
+    }
+
+    public String getTestMethod() {
+        return "Tensile Test"; // Fixed constant
+    }
+
+    public String getRemarks() {
+        return remarksField.getText();
+    }
+
+    public Double getFinalCrossSectionArea() {
+        String text = finalAreaField.getText();
+        if (text == null || text.trim().isEmpty()) {
+            return null;
+        }
+        try {
+            return Double.parseDouble(text);
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
     /**
      * 선택된 파일 경로 가져오기
      */
@@ -561,10 +684,6 @@ public class InputPanel extends JPanel {
         return Math.PI * Math.pow(diameter / 2.0, 2);
     }
 
-    public String getSelectedPreset() {
-        return (String) presetComboBox.getSelectedItem();
-    }
-
     // ========== 이벤트 리스너 설정 메서드들 ==========
 
     public void setCalculateListener(ActionListener listener) {
@@ -575,19 +694,4 @@ public class InputPanel extends JPanel {
         this.resetListener = listener;
     }
 
-    public void setClearGraphListener(ActionListener listener) {
-        this.clearGraphListener = listener;
-    }
-
-    public void setPresetChangedListener(ActionListener listener) {
-        this.presetChangedListener = listener;
-    }
-
-    public void setSavePresetListener(ActionListener listener) {
-        this.savePresetListener = listener;
-    }
-
-    public void setDeletePresetListener(ActionListener listener) {
-        this.deletePresetListener = listener;
-    }
 }

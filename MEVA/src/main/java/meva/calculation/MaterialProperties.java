@@ -32,7 +32,22 @@ public class MaterialProperties {
      * 메인 분석 메서드
      * Raw Data를 받아 스무딩 -> 탄성 -> 항복 -> 파괴 -> 에너지 순으로 분석
      */
+    /**
+     * 메인 분석 메서드 (Overload)
+     * 파라미터 없는 경우 RA 계산 무시
+     */
     public AnalysisResult analyze(List<StressStrainPoint> points) {
+        return analyze(points, 0.0, 0.0);
+    }
+
+    /**
+     * 메인 분석 메서드
+     * Raw Data를 받아 스무딩 -> 탄성 -> 항복 -> 파괴 -> 에너지 순으로 분석
+     * 
+     * @param initialArea 초기 단면적 (mm2) - RA 계산용
+     * @param finalArea   최종 단면적 (mm2) - RA 계산용
+     */
+    public AnalysisResult analyze(List<StressStrainPoint> points, double initialArea, double finalArea) {
         AnalysisResult result = new AnalysisResult();
 
         if (points == null || points.isEmpty()) {
@@ -106,7 +121,7 @@ public class MaterialProperties {
         result.setFractureStrain(fracturePoint.getTrueStrain());
 
         result.setElongation(calculateElongation(fracturePoint));
-        result.setReductionOfArea(calculateReductionOfArea(fracturePoint));
+        result.setReductionOfArea(calculateReductionOfArea(initialArea, finalArea));
 
         // 6. 에너지(인성, 레질리언스) 계산 (EnergyAnalyzer)
         // 인성 (Toughness) - 전체 면적 (Simpson)
@@ -229,9 +244,11 @@ public class MaterialProperties {
         return fracturePoint.getEngineeringStrain() * 100.0;
     }
 
-    private double calculateReductionOfArea(StressStrainPoint fracturePoint) {
+    private double calculateReductionOfArea(double A0, double Af) {
         // 단면 감소율 (RA) = (1 - A_f/A_0) * 100
-        // 현재로서는 단면적 정보가 없으므로 0.0 반환 (추후 업데이트)
+        if (A0 > 0 && Af > 0 && A0 >= Af) {
+            return (1.0 - Af / A0) * 100.0;
+        }
         return 0.0;
     }
 

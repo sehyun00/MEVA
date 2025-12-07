@@ -141,10 +141,6 @@ public class MainFrame extends JFrame {
     private void setupInputPanelListeners() {
         inputPanel.setCalculateListener(this::onCalculateClicked);
         inputPanel.setResetListener(e -> onResetClicked());
-        inputPanel.setClearGraphListener(e -> onClearGraphClicked());
-        inputPanel.setPresetChangedListener(e -> onPresetChanged());
-        inputPanel.setSavePresetListener(e -> onSavePreset());
-        inputPanel.setDeletePresetListener(e -> onDeletePreset());
     }
 
     /**
@@ -288,6 +284,7 @@ public class MainFrame extends JFrame {
                 inputPanel, rightPanel);
         leftRightSplit.setResizeWeight(0.0); // 입력 패널은 고정, 오른쪽 패널 확장
         leftRightSplit.setOneTouchExpandable(true);
+        leftRightSplit.setDividerLocation(360); // [New] 초기 너비 확보 (350 + 여유)
 
         return leftRightSplit;
     }
@@ -425,6 +422,12 @@ public class MainFrame extends JFrame {
         progressBar.setIndeterminate(true);
         isManualCalculation = isRecalculate; // 재계산은 일종의 수동 조작
 
+        // 데이터 준비 (EDT에서 UI 값 읽기)
+        final double userArea = inputPanel.getInitialCrossSection();
+        final double userLength = inputPanel.getGaugeLength();
+        final Double finalAreaObj = inputPanel.getFinalCrossSectionArea();
+        final double finalArea = (finalAreaObj != null) ? finalAreaObj : 0.0;
+
         // 백그라운드 스레드에서 처리
         boolean finalIsRecalculate = isRecalculate;
         SwingWorker<Void, Void> worker = new SwingWorker<Void, Void>() {
@@ -451,8 +454,7 @@ public class MainFrame extends JFrame {
 
                     // 2. 응력-변형률 변환
                     // [New] 만약 재계산(Recalculate)이거나, 초기 직경/게이지 길이가 기본값과 다르면 수동 계산 시도
-                    double userArea = inputPanel.getInitialCrossSection();
-                    double userLength = inputPanel.getGaugeLength();
+                    // (userArea, userLength는 상위 스코프의 final 변수 사용)
 
                     List<StressStrainPoint> convertedData;
 
@@ -490,7 +492,8 @@ public class MainFrame extends JFrame {
 
                     // 5. 물성 분석
                     MaterialProperties materialProps = new MaterialProperties();
-                    this.analysisResult = materialProps.analyze(stressStrainData);
+                    // 초기 단면적과 최종 단면적을 전달하여 RA 계산 지원
+                    this.analysisResult = materialProps.analyze(stressStrainData, userArea, finalArea);
 
                 } catch (IOException e) {
                     errorMessage = "파일 읽기 실패: " + e.getMessage();
@@ -540,12 +543,19 @@ public class MainFrame extends JFrame {
             // Experiment 객체 생성
             Experiment exp = new Experiment();
             exp.setMaterialId(1); // 기본 재료 ID (TODO: 사용자 선택 기능 추가)
+            exp.setMaterialName(inputPanel.getMaterialName()); // 사용자 입력값
+
             exp.setSpecimenDiameter(inputPanel.getInitialDiameter());
             exp.setGaugeLength(inputPanel.getGaugeLength());
             exp.setCrossSectionArea(inputPanel.getInitialCrossSection());
-            exp.setTestDate(LocalDate.now().toString());
+            exp.setFinalCrossSectionArea(inputPanel.getFinalCrossSectionArea());
+
+            exp.setTestDate(inputPanel.getTestDate());
+            exp.setTesterName(inputPanel.getTesterName());
+            exp.setTestMethod(inputPanel.getTestMethod());
+
             exp.setDataFilePath(filePath);
-            exp.setRemarks("자동 저장된 실험");
+            exp.setRemarks(inputPanel.getRemarks());
 
             // DAO를 통해 저장
             ExperimentDAO dao = new ExperimentDAO();
@@ -633,22 +643,6 @@ public class MainFrame extends JFrame {
     private void onResetClicked() {
         currentExperimentId = -1;
         updateStatus("Input reset");
-    }
-
-    private void onClearGraphClicked() {
-        updateStatus("Graph cleared");
-    }
-
-    private void onPresetChanged() {
-        updateStatus("Preset changed");
-    }
-
-    private void onSavePreset() {
-        updateStatus("Preset saved");
-    }
-
-    private void onDeletePreset() {
-        updateStatus("Preset deleted");
     }
 
     private void onExportChart() {
