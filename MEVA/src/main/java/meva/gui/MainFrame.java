@@ -45,7 +45,6 @@ public class MainFrame extends JFrame {
     // 현재 분석 결과 데이터 (재사용용)
     private AnalysisResult currentAnalysisResult;
 
-    private boolean isManualCalculation = false; // 수동 보정 여부 추적
     private List<DataPoint> currentRawData; // [New] 원본 데이터 캐싱 (재계산용)
     private double loadCorrectionFactor = 1.0; // [New] 하중 단위 자동 보정 계수
 
@@ -136,9 +135,8 @@ public class MainFrame extends JFrame {
         // 마커 기준 변경 또는 수동 재계산 시 결과 패널 업데이트
         visualizationPanel.setMarkerRefChangedListener(e -> {
             if ("RECALCULATED".equals(e.getActionCommand())) {
-                // 수동 재계산인 경우
-                isManualCalculation = true;
-                updateStatus("Manual recalculation completed");
+                // 수동 재계산 완료 상태 표시
+                updateStatus("수동 재계산 완료");
             }
             // 일반적인 변경은 GraphPanel 내부에서 ResultPanel.updateMode()를 통해 처리됨
         });
@@ -295,7 +293,6 @@ public class MainFrame extends JFrame {
         updateStatus(isRecalculate ? "재계산 중..." : "파일 읽는 중...");
         progressBar.setVisible(true);
         progressBar.setIndeterminate(true);
-        isManualCalculation = isRecalculate; // 재계산은 일종의 수동 조작
 
         // 데이터 준비 (EDT에서 UI 값 읽기)
         final double userArea = inputPanel.getInitialCrossSection();
@@ -415,10 +412,6 @@ public class MainFrame extends JFrame {
                     updateStatus("계산 실패");
                     return;
                 }
-
-                visualizationPanel.plotStressStrainCurve(stressStrainData);
-                visualizationPanel.setAnalysisResult(analysisResult);
-                currentAnalysisResult = analysisResult;
 
                 visualizationPanel.plotStressStrainCurve(stressStrainData);
                 visualizationPanel.setAnalysisResult(analysisResult);

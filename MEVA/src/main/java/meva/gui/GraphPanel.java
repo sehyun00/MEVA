@@ -498,9 +498,6 @@ public class GraphPanel extends JPanel implements ChartInputHandler.InteractionL
         if (this.resultPanel != null) {
             this.resultPanel.setAnalysisResult(updated);
         }
-        if (this.resultPanel != null) {
-            this.resultPanel.setAnalysisResult(updated);
-        }
     }
 
     private void showTipsDialog() {
