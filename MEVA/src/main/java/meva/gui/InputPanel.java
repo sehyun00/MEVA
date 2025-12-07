@@ -120,4 +120,12 @@ public class InputPanel extends JPanel {
     public double getInitialCrossSection() {
         return newExperimentPanel.getInitialCrossSection();
     }
+
+    public Double getTestSpeed() {
+        return newExperimentPanel.getTestSpeed();
+    }
+
+    public void setSaveExperimentListener(ActionListener listener) {
+        newExperimentPanel.setSaveExperimentListener(listener);
+    }
 }

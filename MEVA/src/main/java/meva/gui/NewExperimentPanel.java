@@ -3,6 +3,10 @@ package meva.gui;
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.ActionListener;
+import java.awt.datatransfer.DataFlavor;
+import java.awt.dnd.*;
+import java.io.File;
+import java.util.List;
 import meva.models.Experiment;
 
 /**
@@ -37,10 +41,16 @@ public class NewExperimentPanel extends JPanel {
     // 제어 버튼들
     private JButton calculateButton;
     private JButton resetButton;
+    private JButton saveExperimentButton;
+
+    // 인장속도 필드
+    private JTextField testSpeedField;
+    private JComboBox<String> testSpeedUnitCombo;
 
     // 이벤트 리스너
     private ActionListener calculateListener;
     private ActionListener resetListener;
+    private ActionListener saveExperimentListener;
 
     public NewExperimentPanel() {
         setLayout(new BoxLayout(this, BoxLayout.Y_AXIS));
@@ -73,7 +83,7 @@ public class NewExperimentPanel extends JPanel {
         panel.setBorder(BorderFactory.createTitledBorder("실험 정보"));
         GridBagConstraints gbc = new GridBagConstraints();
         gbc.fill = GridBagConstraints.HORIZONTAL;
-        gbc.insets = new Insets(4, 4, 4, 4);
+        gbc.insets = new Insets(2, 2, 2, 2); // 간격 축소
         gbc.weightx = 1.0;
 
         // 1. Material Name
@@ -123,52 +133,64 @@ public class NewExperimentPanel extends JPanel {
 
     private JPanel createSpecimenDimensionsPanel() {
         JPanel panel = new JPanel(new GridBagLayout());
-        panel.setBorder(BorderFactory.createTitledBorder("시편 및 단면적 정보"));
+        panel.setBorder(BorderFactory.createTitledBorder("시편 정보"));
         GridBagConstraints gbc = new GridBagConstraints();
         gbc.fill = GridBagConstraints.HORIZONTAL;
-        gbc.insets = new Insets(5, 5, 5, 5);
+        gbc.insets = new Insets(2, 2, 2, 2); // 간격 축소
 
         // Diameter
         gbc.gridx = 0;
         gbc.gridy = 0;
-        panel.add(new JLabel("초기 직경 (D₀):"), gbc);
+        gbc.weightx = 0.4;
+        panel.add(new JLabel("D₀ (직경):"), gbc);
         gbc.gridx = 1;
-        diameterField = new JTextField("", 10);
+        gbc.weightx = 0.5;
+        diameterField = new JTextField("", 6); // 열수 축소
         panel.add(diameterField, gbc);
         gbc.gridx = 2;
+        gbc.weightx = 0.1;
         panel.add(new JLabel("mm"), gbc);
 
         // Gauge Length
         gbc.gridx = 0;
         gbc.gridy = 1;
-        panel.add(new JLabel("초기 게이지 길이 (L₀):"), gbc);
+        gbc.weightx = 0.4;
+        panel.add(new JLabel("L₀ (게이지 길이):"), gbc);
         gbc.gridx = 1;
-        gaugeLengthField = new JTextField("", 10);
+        gbc.weightx = 0.5;
+        gaugeLengthField = new JTextField("", 6);
         panel.add(gaugeLengthField, gbc);
         gbc.gridx = 2;
+        gbc.weightx = 0.1;
         panel.add(new JLabel("mm"), gbc);
 
         // Initial Area (Auto-calculated)
         gbc.gridx = 0;
         gbc.gridy = 2;
-        panel.add(new JLabel("초기 단면적 (A₀):"), gbc);
+        gbc.weightx = 0.4;
+        panel.add(new JLabel("A₀ (단면적):"), gbc);
         gbc.gridx = 1;
-        initialAreaField = new JTextField("", 10);
-        initialAreaField.setEditable(false); // Read-only
+        gbc.weightx = 0.5;
+        initialAreaField = new JTextField("", 6);
+        initialAreaField.setEditable(false);
         initialAreaField.setBackground(new Color(240, 240, 240));
         panel.add(initialAreaField, gbc);
         gbc.gridx = 2;
+        gbc.weightx = 0.1;
         panel.add(new JLabel("mm²"), gbc);
 
         // Final Area
         gbc.gridx = 0;
         gbc.gridy = 3;
-        panel.add(new JLabel("최종 단면적 (Af):"), gbc);
+        gbc.weightx = 0.4;
+        panel.add(new JLabel("Af (최종 단면적):"), gbc);
         gbc.gridx = 1;
-        finalAreaField = new JTextField("");
-        finalAreaField.setToolTipText("파단 후 단면적 입력 (단면 감소율 계산용)");
+        gbc.weightx = 0.5;
+        finalAreaField = new JTextField("", 6);
+        finalAreaField.setToolTipText("파단 후 단면적 (단면 감소율 계산용)");
         panel.add(finalAreaField, gbc);
         gbc.gridx = 2;
+        gbc.weightx = 0.1;
         panel.add(new JLabel("mm²"), gbc);
 
         // Logic: Diameter 입력 시 Area 자동 계산
@@ -194,9 +216,83 @@ public class NewExperimentPanel extends JPanel {
                     }
                     double d = Double.parseDouble(text);
                     double area = Math.PI * Math.pow(d / 2.0, 2);
-                    initialAreaField.setText(String.format("%.4f", area));
+                    initialAreaField.setText(String.format("%.2f", area));
                 } catch (NumberFormatException ex) {
                     initialAreaField.setText("");
+                }
+            }
+        });
+
+        // Test Speed (인장속도)
+        gbc.gridx = 0;
+        gbc.gridy = 4;
+        gbc.weightx = 0.4;
+        panel.add(new JLabel("인장속도:"), gbc);
+        gbc.gridx = 1;
+        gbc.weightx = 0.5;
+        testSpeedField = new JTextField("", 6);
+        testSpeedField.setToolTipText("시험 속도를 입력하세요");
+        panel.add(testSpeedField, gbc);
+        gbc.gridx = 2;
+        gbc.weightx = 0.1;
+        testSpeedUnitCombo = new JComboBox<>(new String[] { "mm/s", "mm/m" });
+        testSpeedUnitCombo.setToolTipText("mm/sec 또는 mm/min");
+        panel.add(testSpeedUnitCombo, gbc);
+
+        return panel;
+    }
+
+    private JPanel createFileUploadPanel() {
+        JPanel panel = new JPanel(new GridBagLayout());
+        panel.setBorder(BorderFactory.createTitledBorder("파일 (드래그앤드롭 가능)"));
+        GridBagConstraints gbc = new GridBagConstraints();
+        gbc.insets = new Insets(3, 3, 3, 3);
+
+        // 버튼 (가운데 정렬)
+        gbc.gridx = 0;
+        gbc.gridy = 0;
+        gbc.anchor = GridBagConstraints.CENTER;
+        loadFileButton = new JButton("파일 선택...");
+        loadFileButton.addActionListener(e -> {
+            JFileChooser fileChooser = new JFileChooser();
+            fileChooser.setFileFilter(new javax.swing.filechooser.FileNameExtensionFilter("Text Files (*.txt)", "txt"));
+            int result = fileChooser.showOpenDialog(this);
+            if (result == JFileChooser.APPROVE_OPTION) {
+                setSelectedFile(fileChooser.getSelectedFile());
+            }
+        });
+        panel.add(loadFileButton, gbc);
+
+        // 파일명 (버튼 아래)
+        gbc.gridy = 1;
+        gbc.fill = GridBagConstraints.HORIZONTAL;
+        filePathLabel = new JLabel("선택되지 않음", SwingConstants.CENTER);
+        filePathLabel.setFont(new Font("Dialog", Font.PLAIN, 11));
+        filePathLabel.setForeground(Color.GRAY);
+        panel.add(filePathLabel, gbc);
+
+        // 드래그앤드롭 설정
+        new DropTarget(panel, new DropTargetAdapter() {
+            @Override
+            public void drop(DropTargetDropEvent event) {
+                try {
+                    event.acceptDrop(DnDConstants.ACTION_COPY);
+                    @SuppressWarnings("unchecked")
+                    List<File> files = (List<File>) event.getTransferable()
+                            .getTransferData(DataFlavor.javaFileListFlavor);
+                    if (!files.isEmpty()) {
+                        File file = files.get(0);
+                        if (file.getName().toLowerCase().endsWith(".txt")) {
+                            setSelectedFile(file);
+                        } else {
+                            JOptionPane.showMessageDialog(panel,
+                                    "TXT 파일만 지원됩니다.",
+                                    "파일 형식 오류",
+                                    JOptionPane.WARNING_MESSAGE);
+                        }
+                    }
+                } catch (Exception ex) {
+                    ex.printStackTrace();
                 }
             }
         });
@@ -204,60 +300,43 @@ public class NewExperimentPanel extends JPanel {
         return panel;
     }
 
-    private JPanel createFileUploadPanel() {
-        JPanel panel = new JPanel(new GridBagLayout());
-        panel.setBorder(BorderFactory.createTitledBorder("데이터 파일 업로드"));
-        GridBagConstraints gbc = new GridBagConstraints();
-        gbc.fill = GridBagConstraints.HORIZONTAL;
-        gbc.insets = new Insets(5, 5, 5, 5);
-
-        gbc.gridx = 0;
-        gbc.gridy = 0;
-        loadFileButton = new JButton("파일 선택...");
-        loadFileButton.setPreferredSize(new Dimension(120, 30));
-        loadFileButton.addActionListener(e -> {
-            JFileChooser fileChooser = new JFileChooser();
-            fileChooser.setFileFilter(new javax.swing.filechooser.FileNameExtensionFilter("Text Files (*.txt)", "txt"));
-            int result = fileChooser.showOpenDialog(this);
-            if (result == JFileChooser.APPROVE_OPTION) {
-                selectedFilePath = fileChooser.getSelectedFile().getAbsolutePath();
-                filePathLabel.setText("파일: " + fileChooser.getSelectedFile().getName());
-                filePathLabel.setForeground(new Color(0, 0, 139));
-            }
-        });
-        panel.add(loadFileButton, gbc);
-
-        gbc.gridx = 1;
-        gbc.gridwidth = 2;
-        filePathLabel = new JLabel("파일이 선택되지 않음");
-        filePathLabel.setFont(new Font("Dialog", Font.BOLD, 12));
-        filePathLabel.setForeground(Color.GRAY);
-        panel.add(filePathLabel, gbc);
-
-        return panel;
+    private void setSelectedFile(File file) {
+        selectedFilePath = file.getAbsolutePath();
+        filePathLabel.setText("📄 " + file.getName());
+        filePathLabel.setForeground(new Color(0, 0, 139));
     }
 
     private JPanel createControlButtonsPanel() {
-        JPanel panel = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 10));
+        JPanel panel = new JPanel(new FlowLayout(FlowLayout.CENTER, 5, 5));
 
-        calculateButton = new JButton("계산 (Calculate)");
-        calculateButton.setPreferredSize(new Dimension(140, 35));
-        calculateButton.addActionListener(e -> {
-            if (validateInputs() && calculateListener != null) {
-                calculateListener.actionPerformed(e);
-            }
-        });
-
-        resetButton = new JButton("초기화 (Reset)");
-        resetButton.setPreferredSize(new Dimension(120, 35));
+        resetButton = new JButton("초기화");
+        resetButton.setPreferredSize(new Dimension(70, 30));
         resetButton.addActionListener(e -> {
             clearInputs();
             if (resetListener != null)
                 resetListener.actionPerformed(e);
         });
 
-        panel.add(calculateButton);
+        saveExperimentButton = new JButton("💾 저장");
+        saveExperimentButton.setPreferredSize(new Dimension(80, 30));
+        saveExperimentButton.setToolTipText("현재 실험 데이터를 데이터베이스에 저장합니다");
+        saveExperimentButton.addActionListener(e -> {
+            if (saveExperimentListener != null) {
+                saveExperimentListener.actionPerformed(e);
+            }
+        });
+
+        calculateButton = new JButton("계산");
+        calculateButton.setPreferredSize(new Dimension(90, 30)); // 가로로 길게
+        calculateButton.addActionListener(e -> {
+            if (validateInputs() && calculateListener != null) {
+                calculateListener.actionPerformed(e);
+            }
+        });
+
         panel.add(resetButton);
+        panel.add(saveExperimentButton);
+        panel.add(calculateButton);
         return panel;
     }
 
@@ -353,6 +432,30 @@ public class NewExperimentPanel extends JPanel {
     }
 
     /**
+     * 인장속도를 mm/sec 단위로 반환
+     */
+    public Double getTestSpeed() {
+        try {
+            String text = testSpeedField.getText();
+            if (text == null || text.isEmpty()) {
+                return null;
+            }
+            double value = Double.parseDouble(text);
+            // mm/min 선택 시 mm/sec로 변환
+            if (testSpeedUnitCombo.getSelectedIndex() == 1) {
+                value = value / 60.0;
+            }
+            return value;
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
+    public void setSaveExperimentListener(ActionListener listener) {
+        this.saveExperimentListener = listener;
+    }
+
+    /**
      * 입력 필드 초기화
      */
     public void clearInputs() {
@@ -364,6 +467,8 @@ public class NewExperimentPanel extends JPanel {
         diameterField.setText("");
         gaugeLengthField.setText("");
         finalAreaField.setText("");
+        testSpeedField.setText("");
+        testSpeedUnitCombo.setSelectedIndex(0);
         selectedFilePath = null;
         filePathLabel.setText("파일이 선택되지 않음");
         filePathLabel.setForeground(Color.GRAY);

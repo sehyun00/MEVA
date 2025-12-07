@@ -39,6 +39,12 @@ public class ResultPanel extends JPanel {
     // 외부 리스너
     private ActionListener saveButtonListener;
 
+    // [신규] 시편 정보 (내보내기용)
+    private double specimenDiameter = 0;
+    private double gaugeLength = 0;
+    private double initialArea = 0;
+    private Double testSpeed = null;
+
     // 현재 선택된 에너지 단위 (Default: MJ/m³)
     private boolean useJouleMM3 = false; // false=MJ/m³, true=J/mm³
 
@@ -296,16 +302,25 @@ public class ResultPanel extends JPanel {
             // 파일 저장
             try (FileWriter writer = new FileWriter(fileToSave)) {
                 // 헤더 정보 작성
-                writer.write("MEVA - Materials Engineering Visualization and Analysis\n");
-                writer.write("Results Export\n");
-                writer.write("Export Date: " + new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date()) + "\n");
+                writer.write("MEVA - 재료 물성 분석 도구\n");
+                writer.write("결과 내보내기\n");
+                writer.write("내보내기 일시: " + new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date()) + "\n");
 
-                // [New] 메타데이터 출력
+                // 메타데이터 출력
                 if (currentResult != null) {
-                    writer.write("Material: " + getSafeString(currentResult.getExperimentName()) + "\n");
-                    writer.write("Test Date: " + getSafeString(currentResult.getTestDate()) + "\n");
-                    writer.write("Tester: " + getSafeString(currentResult.getExperimenter()) + "\n");
-                    writer.write("Remarks: " + getSafeString(currentResult.getRemarks()) + "\n");
+                    writer.write("재료명: " + getSafeString(currentResult.getExperimentName()) + "\n");
+                    writer.write("시험 일시: " + getSafeString(currentResult.getTestDate()) + "\n");
+                    writer.write("시험자: " + getSafeString(currentResult.getExperimenter()) + "\n");
+                    writer.write("비고: " + getSafeString(currentResult.getRemarks()) + "\n");
+                }
+
+                // 시편 정보
+                writer.write("\n--- 시편 정보 ---\n");
+                writer.write("초기 직경 (D₀): " + String.format("%.4f", specimenDiameter) + " mm\n");
+                writer.write("게이지 길이 (L₀): " + String.format("%.4f", gaugeLength) + " mm\n");
+                writer.write("초기 단면적 (A₀): " + String.format("%.4f", initialArea) + " mm²\n");
+                if (testSpeed != null) {
+                    writer.write("인장속도: " + String.format("%.4f", testSpeed) + " mm/sec\n");
                 }
                 writer.write("\n");
 
@@ -626,5 +641,15 @@ public class ResultPanel extends JPanel {
                     JOptionPane.ERROR_MESSAGE);
             ex.printStackTrace();
         }
+    }
+
+    /**
+     * 시편 정보 설정 (CSV 내보내기용)
+     */
+    public void setSpecimenInfo(double diameter, double gaugeLen, double area, Double speed) {
+        this.specimenDiameter = diameter;
+        this.gaugeLength = gaugeLen;
+        this.initialArea = area;
+        this.testSpeed = speed;
     }
 }

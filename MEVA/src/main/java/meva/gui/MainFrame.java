@@ -110,6 +110,7 @@ public class MainFrame extends JFrame {
     private void setupInputPanelListeners() {
         inputPanel.setCalculateListener(this::onCalculateClicked);
         inputPanel.setResetListener(e -> onResetClicked());
+        inputPanel.setSaveExperimentListener(e -> onSaveExperimentClicked());
         inputPanel.addExperimentLoadedListener(this::onExperimentLoaded); // [New] 실험 로드 리스너 연결
     }
 
@@ -118,6 +119,11 @@ public class MainFrame extends JFrame {
      */
     private void onExperimentLoaded(Experiment exp) {
         if (exp != null) {
+            // [버그수정] 이전 그래프 초기화 후 새 데이터 로드
+            visualizationPanel.clearGraph();
+            resultsPanel.clearResults();
+            currentRawData = null; // 캐시 초기화
+
             currentExperimentId = exp.getId(); // 로드된 ID 설정
             updateStatus("Load complete: ID " + currentExperimentId);
             // 저장 없이 분석 수행 및 그래프 표시
@@ -417,14 +423,14 @@ public class MainFrame extends JFrame {
                 visualizationPanel.setAnalysisResult(analysisResult);
                 currentAnalysisResult = analysisResult;
 
-                if (saveToDb && analysisResult != null && analysisResult.getUtsPoint() != null) {
-                    saveExperimentToDatabase(filePath,
-                            analysisResult.getTensileStrength(),
-                            analysisResult.getUtsPoint().getEngineeringStrain());
-                } else if (!saveToDb) {
-                    System.out.println("로드 모드: DB 저장 건너뜀");
-                }
+                // [New] ResultPanel에 시편 정보 설정 (CSV 내보내기용)
+                resultsPanel.setSpecimenInfo(
+                        userDiameter,
+                        userLength,
+                        userArea,
+                        inputPanel.getTestSpeed());
 
+                // [변경] 계산 버튼은 계산만 수행, 저장은 별도 버튼으로 분리됨
                 updateStatus("계산 완료 (" + stressStrainData.size() + " 데이터 포인트)");
             }
         };
@@ -453,6 +459,7 @@ public class MainFrame extends JFrame {
 
             exp.setDataFilePath(filePath);
             exp.setRemarks(inputPanel.getRemarks());
+            exp.setTestSpeed(inputPanel.getTestSpeed()); // [New] 인장속도
 
             // DAO를 통해 저장
             ExperimentDAO dao = new ExperimentDAO();
@@ -469,6 +476,41 @@ public class MainFrame extends JFrame {
             System.err.println("데이터베이스 저장 오류: " + e.getMessage());
             e.printStackTrace();
         }
+    }
+
+    /**
+     * 실험 저장 버튼 클릭 핸들러
+     */
+    private void onSaveExperimentClicked() {
+        // 계산 결과가 없으면 저장 불가
+        if (currentAnalysisResult == null) {
+            JOptionPane.showMessageDialog(this,
+                    "먼저 계산을 수행해주세요.",
+                    "저장 불가",
+                    JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+
+        String filePath = inputPanel.getSelectedFilePath();
+        if (filePath == null || filePath.isEmpty()) {
+            JOptionPane.showMessageDialog(this,
+                    "데이터 파일이 선택되지 않았습니다.",
+                    "저장 불가",
+                    JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+
+        // DB에 저장
+        saveExperimentToDatabase(filePath,
+                currentAnalysisResult.getTensileStrength(),
+                currentAnalysisResult.getUtsPoint() != null
+                        ? currentAnalysisResult.getUtsPoint().getEngineeringStrain()
+                        : 0.0);
+
+        JOptionPane.showMessageDialog(this,
+                "실험 데이터가 저장되었습니다. (ID: " + currentExperimentId + ")",
+                "저장 완료",
+                JOptionPane.INFORMATION_MESSAGE);
     }
 
     private void onResetClicked() {

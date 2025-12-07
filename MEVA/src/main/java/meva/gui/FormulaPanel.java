@@ -78,7 +78,22 @@ public class FormulaPanel extends JPanel {
         contentPanel.add(Box.createVerticalStrut(10));
         contentPanel.add(txtLegend);
 
-        add(contentPanel, BorderLayout.CENTER);
+        // [버그수정] ScrollPane으로 감싸서 리사이징 시 내용이 잘리지 않도록 함
+        JScrollPane scrollPane = new JScrollPane(contentPanel);
+        scrollPane.setBorder(null);
+        scrollPane.getVerticalScrollBar().setUnitIncrement(16);
+        add(scrollPane, BorderLayout.CENTER);
+    }
+
+    /**
+     * 부모 컨테이너 리사이징 시 레이아웃 갱신
+     */
+    @Override
+    public void invalidate() {
+        super.invalidate();
+        if (contentPanel != null) {
+            contentPanel.revalidate();
+        }
     }
 
     // ========== 옵션 설정 메서드 (ResultPanel에서 호출) ==========
