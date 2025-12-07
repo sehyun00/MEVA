@@ -120,7 +120,7 @@ public class GraphPanel extends JPanel implements ChartInputHandler.InteractionL
 
         JPanel slopePanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 0)); // Slope
         slopeLineCheckBox
-                .setToolTipText("<html><b>[탄성 구간 조절]</b><br>파란색 점선 끝의 <b>네모 핸들</b>을 드래그하여 구간을 수동 설정하세요.</html>");
+                .setToolTipText("<html><b>[탄성 구간 조절]</b><br>파란색 점선 끝의 <b>네모 핸들</b>을 드래그하여 직선 구간을 수동 설정하세요.</html>");
         slopePanel.add(slopeLineCheckBox);
         row1.add(slopePanel);
 
