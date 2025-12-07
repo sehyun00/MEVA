@@ -20,8 +20,8 @@ public class ExperimentDAO {
     public int saveExperiment(Experiment experiment) {
         String sql = "INSERT INTO experiments (material_id, specimen_diameter, gauge_length, " +
                 "cross_section_area, test_date, test_temperature, test_speed, " +
-                "data_file_path, remarks, tester_name, test_method, final_cross_section_area) " +
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                "data_file_path, remarks, tester_name, test_method, final_cross_section_area, custom_material_name) " +
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
         try (Connection conn = DatabaseManager.getConnection();
                 PreparedStatement pstmt = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
@@ -53,6 +53,14 @@ public class ExperimentDAO {
                 pstmt.setDouble(12, experiment.getFinalCrossSectionArea());
             } else {
                 pstmt.setNull(12, Types.DOUBLE);
+            }
+
+            // [New] 사용자 지정 재료명 저장
+            String customName = experiment.getMaterialName();
+            if (customName != null && !customName.trim().isEmpty()) {
+                pstmt.setString(13, customName);
+            } else {
+                pstmt.setNull(13, Types.VARCHAR);
             }
 
             int rows = pstmt.executeUpdate();
@@ -137,8 +145,9 @@ public class ExperimentDAO {
      */
     public List<Experiment> getAllExperiments() {
         List<Experiment> experiments = new ArrayList<>();
+        // [Modified] custom_material_name 우선 사용 (없으면 기본 재료명)
         String sql = "SELECT e.id, e.material_id, e.test_date, e.specimen_diameter, e.gauge_length, " +
-                "m.name AS material_name, c.max_stress, c.uts " +
+                "COALESCE(e.custom_material_name, m.name) AS material_name, c.max_stress, c.uts " +
                 "FROM experiments e " +
                 "LEFT JOIN materials m ON e.material_id = m.id " +
                 "LEFT JOIN calculation_results c ON e.id = c.experiment_id " +
@@ -182,7 +191,7 @@ public class ExperimentDAO {
      * ID로 실험 조회
      */
     public Experiment getExperimentById(int experimentId) {
-        String sql = "SELECT e.*, m.name AS material_name, " +
+        String sql = "SELECT e.*, COALESCE(e.custom_material_name, m.name) AS material_name, " +
                 "c.max_stress, c.strain_at_max_stress, c.uts " +
                 "FROM experiments e " +
                 "LEFT JOIN materials m ON e.material_id = m.id " +
@@ -242,9 +251,10 @@ public class ExperimentDAO {
      */
     public List<Experiment> searchExperiments(String searchText, String materialCategory) {
         List<Experiment> experiments = new ArrayList<>();
+        // [Modified] 검색 시 custom_material_name도 고려
         StringBuilder sql = new StringBuilder(
                 "SELECT e.id, e.material_id, e.test_date, e.specimen_diameter, e.gauge_length, " +
-                        "m.name AS material_name, c.max_stress, c.uts " +
+                        "COALESCE(e.custom_material_name, m.name) AS material_name, c.max_stress, c.uts " +
                         "FROM experiments e " +
                         "LEFT JOIN materials m ON e.material_id = m.id " +
                         "LEFT JOIN calculation_results c ON e.id = c.experiment_id " +
@@ -253,7 +263,9 @@ public class ExperimentDAO {
         List<String> parameters = new ArrayList<>();
 
         if (searchText != null && !searchText.isEmpty()) {
-            sql.append("AND m.name LIKE ? ");
+            // [Modified] 이름(Custom or Default) 또는 ID로 검색 지원
+            sql.append("AND (COALESCE(e.custom_material_name, m.name) LIKE ? OR CAST(e.id AS TEXT) LIKE ?) ");
+            parameters.add("%" + searchText + "%");
             parameters.add("%" + searchText + "%");
         }
 

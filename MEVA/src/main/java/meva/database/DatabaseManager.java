@@ -109,7 +109,8 @@ public class DatabaseManager {
                 String[] columns = {
                                 "ALTER TABLE experiments ADD COLUMN tester_name TEXT;",
                                 "ALTER TABLE experiments ADD COLUMN test_method TEXT;",
-                                "ALTER TABLE experiments ADD COLUMN final_cross_section_area REAL;"
+                                "ALTER TABLE experiments ADD COLUMN final_cross_section_area REAL;",
+                                "ALTER TABLE experiments ADD COLUMN custom_material_name TEXT;"
                 };
 
                 try (Statement stmt = conn.createStatement()) {

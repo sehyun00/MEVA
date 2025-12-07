@@ -14,7 +14,7 @@ import meva.models.AnalysisResult;
 import javax.swing.SwingWorker;
 import java.io.IOException;
 import java.util.List;
-import java.time.LocalDate;
+
 import meva.calculation.MaterialProperties;
 
 /**
@@ -642,6 +642,8 @@ public class MainFrame extends JFrame {
 
     private void onResetClicked() {
         currentExperimentId = -1;
+        resultsPanel.clearResults();
+        visualizationPanel.clearGraph();
         updateStatus("Input reset");
     }
 

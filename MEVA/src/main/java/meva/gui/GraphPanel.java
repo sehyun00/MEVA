@@ -309,6 +309,24 @@ public class GraphPanel extends JPanel implements ChartInputHandler.InteractionL
         updateVisualization();
     }
 
+    /**
+     * 그래프 데이터를 초기화합니다. [New]
+     */
+    public void clearGraph() {
+        if (chartManager != null) {
+            chartManager.clearData();
+        }
+        currentResult = null;
+        currentData = null;
+        if (resultPanel != null) {
+            resultPanel.clearResults();
+        }
+        chartContainerPanel.removeAll();
+        chartContainerPanel.add(placeholderPanel, BorderLayout.CENTER);
+        chartContainerPanel.revalidate();
+        chartContainerPanel.repaint();
+    }
+
     public JPanel getChartPanel() {
         return chartManager.getChartPanel();
     }

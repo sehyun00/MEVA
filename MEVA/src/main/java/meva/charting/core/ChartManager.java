@@ -137,6 +137,30 @@ public class ChartManager {
     }
 
     /**
+     * 차트 데이터를 초기화합니다. [NEW]
+     */
+    public void clearData() {
+        this.currentData = null;
+        this.currentResult = null;
+
+        // 데이터셋 초기화
+        chart.getXYPlot().setDataset(0, new XYSeriesCollection());
+
+        // 오버레이 초기화
+        if (areaHighlightOverlay != null) {
+            areaHighlightOverlay.setResilienceData(0.0, 0.0, null, null, 0.0);
+            areaHighlightOverlay.setToughnessCurve(null, null, 0.0, 0.0);
+        }
+
+        // 핸들러 데이터 초기화
+        if (inputHandler != null) {
+            inputHandler.updateData(null, isTrueStressMode);
+        }
+
+        chartPanel.repaint();
+    }
+
+    /**
      * 분석 결과를 받아 차트 시각화 요소를 갱신합니다.
      */
     public void updateAnalysisResult(AnalysisResult result, boolean isManualUpdate) {
