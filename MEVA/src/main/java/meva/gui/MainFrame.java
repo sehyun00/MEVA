@@ -141,6 +141,19 @@ public class MainFrame extends JFrame {
     private void setupInputPanelListeners() {
         inputPanel.setCalculateListener(this::onCalculateClicked);
         inputPanel.setResetListener(e -> onResetClicked());
+        inputPanel.addExperimentLoadedListener(this::onExperimentLoaded); // [New] 실험 로드 리스너 연결
+    }
+
+    /**
+     * 실험 데이터 로드 시 호출됨
+     */
+    private void onExperimentLoaded(Experiment exp) {
+        if (exp != null) {
+            currentExperimentId = exp.getId(); // 로드된 ID 설정
+            updateStatus("Load complete: ID " + currentExperimentId);
+            // 저장 없이 분석 수행 및 그래프 표시
+            performAnalysis(false);
+        }
     }
 
     /**
@@ -395,16 +408,25 @@ public class MainFrame extends JFrame {
     }
 
     private void onCalculateClicked(java.awt.event.ActionEvent event) {
+        // 버튼 클릭(또는 수동 실행)은 DB 저장을 원칙으로 함 (단, 재계산인 경우 로직 따름)
+        // 여기서는 기존 로직 유지를 위해 '저장 모드'로 실행
+        performAnalysis(true);
+    }
+
+    /**
+     * 실제 분석 수행 메서드 (Save Flag 추가)
+     */
+    private void performAnalysis(boolean saveToDb) {
         // 1. 파일 경로 확인
         String filePath = inputPanel.getSelectedFilePath();
 
-        // [New] 재계산 여부 확인
-        boolean isRecalculate = false;
-        if (event != null && event.getSource() instanceof JButton) {
-            String btnText = ((JButton) event.getSource()).getText();
-            if (btnText != null && (btnText.contains("Update") || btnText.contains("Recalculate"))) {
-                isRecalculate = true;
-            }
+        // [New] 재계산 여부는 saveToDb가 true이면서 기존 데이터가 있는 경우 등으로 판단 가능하나
+        // 여기서는 단순화하여 UI 상태 업데이트 위주로 처리
+        boolean isRecalculate = (currentAnalysisResult != null); // 결과가 이미 있으면 재계산으로 간주 (단, 로드는 제외)
+
+        // 로드 모드(saveToDb=false)일 때는 재계산 플래그를 false로 두어 파일 우선 로드 (또는 필요시 조정)
+        if (!saveToDb) {
+            isRecalculate = false;
         }
 
         // 재계산 요청이 들어왔으나 캐시된 데이터가 없으면 경고 후 일반 모드(파일 로드)로 전환 시도
@@ -522,10 +544,16 @@ public class MainFrame extends JFrame {
                 visualizationPanel.setAnalysisResult(analysisResult);
                 currentAnalysisResult = analysisResult;
 
-                if (analysisResult != null && analysisResult.getUtsPoint() != null) {
+                visualizationPanel.plotStressStrainCurve(stressStrainData);
+                visualizationPanel.setAnalysisResult(analysisResult);
+                currentAnalysisResult = analysisResult;
+
+                if (saveToDb && analysisResult != null && analysisResult.getUtsPoint() != null) {
                     saveExperimentToDatabase(filePath,
                             analysisResult.getTensileStrength(),
                             analysisResult.getUtsPoint().getEngineeringStrain());
+                } else if (!saveToDb) {
+                    System.out.println("로드 모드: DB 저장 건너뜀");
                 }
 
                 updateStatus("계산 완료 (" + stressStrainData.size() + " 데이터 포인트)");

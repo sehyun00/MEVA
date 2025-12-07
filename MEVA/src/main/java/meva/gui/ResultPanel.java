@@ -41,7 +41,7 @@ public class ResultPanel extends JPanel {
             { "연신율", "-", "%" },
             { "균일 연신율 (Uniform Elongation)", "-", "-" },
             { "단면 감소율", "-", "%" },
-            { "변형률 에너지 밀도 (Toughness)", "-", "MJ/m³" },
+            { "인성 (Toughness)", "-", "MJ/m³" },
             { "레질리언스 계수 (Resilience)", "-", "MJ/m³" },
             { "비례 한계", "-", "MPa" },
             { "파괴 응력", "-", "MPa" },
@@ -293,7 +293,7 @@ public class ResultPanel extends JPanel {
         // 1. 공통 값 (True/Eng 차이가 없거나 미미한 것들)
         updateValueByProperty("연신율", String.format("%.2f", currentResult.getElongation()));
         updateValueByProperty("단면 감소율", String.format("%.2f", currentResult.getReductionOfArea()));
-        updateValueByProperty("변형률 에너지 밀도", String.format("%.3f", currentResult.getToughness()));
+        updateValueByProperty("인성 (Toughness)", String.format("%.3f", currentResult.getToughness()));
 
         // 2. 모드에 따라 달라지는 값 (Stress/Modulus)
         double E_GPa = isTrueStress ? currentResult.getYoungsModulus() : currentResult.getYoungsModulusEng();

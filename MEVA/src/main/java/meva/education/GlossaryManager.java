@@ -50,8 +50,8 @@ public class GlossaryManager {
                                                 "파단 후 시편의 단면적이 줄어든 비율입니다.<br>" +
                                                 "연신율과 함께 재료의 연성을 평가하는 데 사용됩니다.</html>");
 
-                glossary.put("변형률 에너지 밀도 (Toughness)",
-                                "<html><b>인성 (Toughness)</b><br>" +
+                glossary.put("인성 (Toughness)",
+                                "<html><b>변형률 에너지 밀도 (Strain Energy Density)</b><br>" +
                                                 "재료가 파괴될 때까지 흡수할 수 있는 총 에너지입니다.<br>" +
                                                 "그래프 전체 면적에 해당하며, 값이 클수록 충격에 강합니다.</html>");
 

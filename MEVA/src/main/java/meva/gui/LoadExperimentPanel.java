@@ -23,6 +23,7 @@ public class LoadExperimentPanel extends JPanel {
     private JTextField searchField;
     private JTextField startDateField;
     private JTextField endDateField;
+    private JTextArea remarksArea; // [New] 비고 표시용
     // private JComboBox<String> materialCombo; // [Removed] User request
 
     // 실험이 로드되었을 때 호출할 콜백 (부모 패널로 데이터 전달용)
@@ -88,7 +89,7 @@ public class LoadExperimentPanel extends JPanel {
         tablePanel.setBorder(BorderFactory.createTitledBorder("📋 저장된 실험 목록"));
 
         // 테이블 모델 생성
-        String[] columnNames = { "ID", "재료명", "시험일시", "직경(mm)", "게이지길이(mm)" }; // [Modified] "날짜" -> "시험일시"
+        String[] columnNames = { "ID", "재료명", "시험일시", "직경(mm)", "게이지길이(mm)", "비고" }; // [Modified] "비고" 컬럼 추가 (Hidden)
         tableModel = new DefaultTableModel(columnNames, 0) {
             @Override
             public boolean isCellEditable(int row, int column) {
@@ -105,8 +106,11 @@ public class LoadExperimentPanel extends JPanel {
                 return String.class;
             }
         };
-        table = new JTable(tableModel);
+        table = new JTable(tableModel); // [Modified] 툴팁 오버라이드 제거
         table.setSelectionMode(ListSelectionModel.MULTIPLE_INTERVAL_SELECTION);
+
+        // "비고" 컬럼 숨기기 (모델에는 존재하지만 뷰에서는 제거)
+        table.getColumnModel().removeColumn(table.getColumnModel().getColumn(5));
 
         // [New] 정렬 기능 추가 (TableRowSorter)
         table.setAutoCreateRowSorter(true);
@@ -125,6 +129,26 @@ public class LoadExperimentPanel extends JPanel {
 
         JScrollPane scrollPane = new JScrollPane(table);
         tablePanel.add(scrollPane, BorderLayout.CENTER);
+
+        // [New] 하단 비고 영역 추가
+        remarksArea = new JTextArea(3, 20); // 3줄 높이
+        remarksArea.setEditable(false);
+        remarksArea.setLineWrap(true);
+        remarksArea.setWrapStyleWord(true);
+        remarksArea.setBackground(new Color(240, 240, 240)); // 초기 비활성 색상
+        remarksArea.setEnabled(false); // 초기 비활성
+        remarksArea.setDisabledTextColor(Color.DARK_GRAY); // 비활성 시 텍스트 가독성 확보
+
+        JScrollPane remarksScroll = new JScrollPane(remarksArea);
+        remarksScroll.setBorder(BorderFactory.createTitledBorder("비고"));
+        tablePanel.add(remarksScroll, BorderLayout.SOUTH);
+
+        // [New] 테이블 선택 리스너 추가 (비고 연동)
+        table.getSelectionModel().addListSelectionListener(e -> {
+            if (!e.getValueIsAdjusting()) {
+                updateRemarksArea();
+            }
+        });
 
         // 초기 데이터 로드
         loadExperimentListToTable();
@@ -167,7 +191,8 @@ public class LoadExperimentPanel extends JPanel {
                         exp.getMaterialName(),
                         exp.getTestDate(),
                         exp.getSpecimenDiameter(),
-                        exp.getGaugeLength()
+                        exp.getGaugeLength(),
+                        exp.getRemarks() // [New] 비고 추가
                 };
                 tableModel.addRow(row);
             }
@@ -189,7 +214,8 @@ public class LoadExperimentPanel extends JPanel {
                     exp.getMaterialName(),
                     exp.getTestDate(),
                     exp.getSpecimenDiameter(),
-                    exp.getGaugeLength()
+                    exp.getGaugeLength(),
+                    exp.getRemarks() // [New] 비고 추가
             };
             tableModel.addRow(row);
         }
@@ -277,6 +303,30 @@ public class LoadExperimentPanel extends JPanel {
 
             // 테이블 데이터 갱신 (삭제 반영)
             loadExperimentListToTable();
+        }
+    }
+
+    // [New] 비고 영역 업데이트 메서드
+    private void updateRemarksArea() {
+        int selectedRow = table.getSelectedRow();
+        if (selectedRow != -1) {
+            int modelRow = table.convertRowIndexToModel(selectedRow);
+            Object value = tableModel.getValueAt(modelRow, 5); // 5: 비고 컬럼
+            String remark = (value != null) ? value.toString() : "";
+
+            if (!remark.trim().isEmpty()) {
+                remarksArea.setText(remark);
+                remarksArea.setEnabled(true);
+                remarksArea.setBackground(Color.WHITE);
+            } else {
+                remarksArea.setText("비고 없음");
+                remarksArea.setEnabled(false);
+                remarksArea.setBackground(new Color(240, 240, 240));
+            }
+        } else {
+            remarksArea.setText("");
+            remarksArea.setEnabled(false);
+            remarksArea.setBackground(new Color(240, 240, 240));
         }
     }
 }

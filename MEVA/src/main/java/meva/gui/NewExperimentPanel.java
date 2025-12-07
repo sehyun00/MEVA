@@ -22,6 +22,7 @@ public class NewExperimentPanel extends JPanel {
     private JTextField testDateField;
     private JTextField testerNameField;
     private JTextField finalAreaField;
+    private JTextField initialAreaField; // [New] Auto-calculated
     private JTextField remarksField;
 
     // 시편 치수 입력 필드들
@@ -147,9 +148,21 @@ public class NewExperimentPanel extends JPanel {
         gbc.gridx = 2;
         panel.add(new JLabel("mm"), gbc);
 
-        // Final Area
+        // Initial Area (Auto-calculated)
         gbc.gridx = 0;
         gbc.gridy = 2;
+        panel.add(new JLabel("초기 단면적 (A₀):"), gbc);
+        gbc.gridx = 1;
+        initialAreaField = new JTextField("", 10);
+        initialAreaField.setEditable(false); // Read-only
+        initialAreaField.setBackground(new Color(240, 240, 240));
+        panel.add(initialAreaField, gbc);
+        gbc.gridx = 2;
+        panel.add(new JLabel("mm²"), gbc);
+
+        // Final Area
+        gbc.gridx = 0;
+        gbc.gridy = 3;
         panel.add(new JLabel("최종 단면적 (Af):"), gbc);
         gbc.gridx = 1;
         finalAreaField = new JTextField("");
@@ -157,6 +170,36 @@ public class NewExperimentPanel extends JPanel {
         panel.add(finalAreaField, gbc);
         gbc.gridx = 2;
         panel.add(new JLabel("mm²"), gbc);
+
+        // Logic: Diameter 입력 시 Area 자동 계산
+        diameterField.getDocument().addDocumentListener(new javax.swing.event.DocumentListener() {
+            public void changedUpdate(javax.swing.event.DocumentEvent e) {
+                calculateArea();
+            }
+
+            public void removeUpdate(javax.swing.event.DocumentEvent e) {
+                calculateArea();
+            }
+
+            public void insertUpdate(javax.swing.event.DocumentEvent e) {
+                calculateArea();
+            }
+
+            private void calculateArea() {
+                try {
+                    String text = diameterField.getText();
+                    if (text == null || text.isEmpty()) {
+                        initialAreaField.setText("");
+                        return;
+                    }
+                    double d = Double.parseDouble(text);
+                    double area = Math.PI * Math.pow(d / 2.0, 2);
+                    initialAreaField.setText(String.format("%.4f", area));
+                } catch (NumberFormatException ex) {
+                    initialAreaField.setText("");
+                }
+            }
+        });
 
         return panel;
     }
@@ -277,7 +320,11 @@ public class NewExperimentPanel extends JPanel {
     }
 
     public String getTesterName() {
-        return testerNameField.getText();
+        String name = testerNameField.getText();
+        if (name == null || name.trim().isEmpty()) {
+            return "Unknown";
+        }
+        return name;
     }
 
     public String getTestMethod() {

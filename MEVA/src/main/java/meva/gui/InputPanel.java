@@ -34,6 +34,11 @@ public class InputPanel extends JPanel {
             newExperimentPanel.setExperimentData(exp);
             // 2. 탭을 "새 실험"으로 전환
             tabbedPane.setSelectedIndex(0);
+
+            // 3. 상위(MainFrame)에 알림 (그래프 즉시 표시용)
+            for (java.util.function.Consumer<Experiment> listener : experimentLoadedListeners) {
+                listener.accept(exp);
+            }
         }
     }
 
@@ -91,6 +96,13 @@ public class InputPanel extends JPanel {
 
     public String getTestMethod() {
         return newExperimentPanel.getTestMethod();
+    }
+
+    // 3. Delegation: Custom Listeners
+    private java.util.List<java.util.function.Consumer<Experiment>> experimentLoadedListeners = new java.util.ArrayList<>();
+
+    public void addExperimentLoadedListener(java.util.function.Consumer<Experiment> listener) {
+        experimentLoadedListeners.add(listener);
     }
 
     public String getRemarks() {

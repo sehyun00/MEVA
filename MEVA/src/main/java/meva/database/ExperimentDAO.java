@@ -146,7 +146,9 @@ public class ExperimentDAO {
     public List<Experiment> getAllExperiments() {
         List<Experiment> experiments = new ArrayList<>();
         // [Modified] custom_material_name 우선 사용 (없으면 기본 재료명)
-        String sql = "SELECT e.id, e.material_id, e.test_date, e.specimen_diameter, e.gauge_length, " +
+        String sql = "SELECT e.id, e.material_id, e.test_date, e.specimen_diameter, e.gauge_length, e.remarks, " + // [Fix]
+                                                                                                                   // remarks
+                                                                                                                   // 추가
                 "COALESCE(e.custom_material_name, m.name) AS material_name, c.max_stress, c.uts " +
                 "FROM experiments e " +
                 "LEFT JOIN materials m ON e.material_id = m.id " +
@@ -165,6 +167,7 @@ public class ExperimentDAO {
                 exp.setSpecimenDiameter(rs.getDouble("specimen_diameter"));
                 exp.setGaugeLength(rs.getDouble("gauge_length"));
                 exp.setMaterialName(rs.getString("material_name"));
+                exp.setRemarks(rs.getString("remarks")); // [Fix] remarks 로드 추가
 
                 // 계산 결과 (선택적)
                 double maxStress = rs.getDouble("max_stress");
@@ -253,7 +256,9 @@ public class ExperimentDAO {
         List<Experiment> experiments = new ArrayList<>();
         // [Modified] 검색 시 custom_material_name도 고려
         StringBuilder sql = new StringBuilder(
-                "SELECT e.id, e.material_id, e.test_date, e.specimen_diameter, e.gauge_length, " +
+                "SELECT e.id, e.material_id, e.test_date, e.specimen_diameter, e.gauge_length, e.remarks, " + // [Fix]
+                                                                                                              // remarks
+                                                                                                              // 추가
                         "COALESCE(e.custom_material_name, m.name) AS material_name, c.max_stress, c.uts " +
                         "FROM experiments e " +
                         "LEFT JOIN materials m ON e.material_id = m.id " +
@@ -291,7 +296,9 @@ public class ExperimentDAO {
                     exp.setTestDate(rs.getString("test_date"));
                     exp.setSpecimenDiameter(rs.getDouble("specimen_diameter"));
                     exp.setGaugeLength(rs.getDouble("gauge_length"));
+                    exp.setGaugeLength(rs.getDouble("gauge_length"));
                     exp.setMaterialName(rs.getString("material_name"));
+                    exp.setRemarks(rs.getString("remarks")); // [Fix] remarks 로드 추가
 
                     double maxStress = rs.getDouble("max_stress");
                     if (!rs.wasNull())

@@ -132,7 +132,7 @@ public class MaterialProperties {
             sigmas.add(p.getTrueStress());
         }
         double toughness = energyAnalyzer.calculateToughnessSimpson(epsilons, sigmas, fracturePoint.getTrueStrain());
-        result.setToughness(toughness / 1000.0); // MJ/m^3 단위 변환
+        result.setToughness(toughness); // [Fix] 1 MPa * strain = 1 MJ/m^3. No division needed.
 
         // 레질리언스 (Resilience)
         double yieldStrengthVal = result.getYieldStrength(); // 대표 항복 강도
@@ -340,7 +340,7 @@ public class MaterialProperties {
             fractureStrain = useEngineering ? last.getEngineeringStrain() : last.getTrueStrain();
         }
         double newToughness = calculateIntegral(points, fractureStrain, useEngineering);
-        result.setToughness(newToughness / 1000.0); // MJ/m^3 (MPa * strain)
+        result.setToughness(newToughness); // [Fix] 1 MPa * strain = 1 MJ/m^3. No division needed.
 
         return result;
     }
