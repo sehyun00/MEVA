@@ -152,7 +152,6 @@ public class MaterialProperties {
         }
 
         // 7. 기타 (탄성 한계, 비례 한계 등) - 간단한 로직은 Helper로 분리하거나 여기에 유지
-        result.setElasticLimit(calculateElasticLimit(smoothedPoints, youngsModulus, false));
         result.setProportionalLimit(calculateProportionalLimit(smoothedPoints, youngsModulus, false));
 
         return result;
@@ -314,7 +313,6 @@ public class MaterialProperties {
         if (modulus == 0 && result.getYoungsModulus() > 0)
             modulus = result.getYoungsModulus(); // Safety
 
-        result.setElasticLimit(calculateElasticLimit(points, modulus, useEngineering));
         result.setProportionalLimit(calculateProportionalLimit(points, modulus, useEngineering));
 
         // 5. Toughness (인성) 재계산 (View Mode 의존)
@@ -362,26 +360,6 @@ public class MaterialProperties {
                 break;
         }
         return area;
-    }
-
-    private double calculateElasticLimit(List<StressStrainPoint> points, double youngsModulus, boolean useEngineering) {
-        if (points == null || points.isEmpty() || youngsModulus <= 0)
-            return 0.0;
-
-        double E_MPa = youngsModulus * 1000.0;
-        double tolerance = 0.02; // 2% 편차 허용
-        for (StressStrainPoint p : points) {
-            double strain = useEngineering ? p.getEngineeringStrain() : p.getTrueStrain();
-            double stress = useEngineering ? p.getEngineeringStress() : p.getTrueStress();
-
-            if (strain <= 0.0005)
-                continue; // Toe 무시
-
-            double expected = E_MPa * strain;
-            if (Math.abs(stress - expected) / expected > tolerance)
-                return stress;
-        }
-        return 0.0;
     }
 
     private double calculateProportionalLimit(List<StressStrainPoint> points, double youngsModulus,

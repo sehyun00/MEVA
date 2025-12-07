@@ -35,25 +35,24 @@ public class ResultPanel extends JPanel {
     // 테이블 데이터
     private static final String[] COLUMN_NAMES = { "속성", "값", "단위" };
     private static final Object[][] INITIAL_DATA = {
-            { "최대 응력 (σmax)", "-", "MPa" },
-            { "최대 응력 시 변형률 (εmax)", "-", "-" },
             { "극한 인장 강도 (UTS)", "-", "MPa" },
             { "영률 (E)", "-", "GPa" },
-            { "항복 강도 (0.2% Offset)", "-", "MPa" }, // 라벨 명확화
+            { "항복 강도 (0.2% Offset)", "-", "MPa" },
             { "연신율", "-", "%" },
+            { "균일 연신율 (Uniform Elongation)", "-", "-" },
             { "단면 감소율", "-", "%" },
+            { "가공경화지수 (n)", "-", "-" },
+            { "강도 계수 (K)", "-", "MPa" },
+            { "스프링백 (Springback)", "-", "-" },
             { "변형률 에너지 밀도 (Toughness)", "-", "MJ/m³" },
             { "레질리언스 계수 (Resilience)", "-", "MJ/m³" },
-            { "탄성 한계", "-", "MPa" },
             { "비례 한계", "-", "MPa" },
-            { "네킹 시작 변형률", "-", "-" },
             { "파괴 응력", "-", "MPa" },
             { "파괴 변형률", "-", "-" }
     };
 
     // 현재 데이터 상태 저장 (모드 변경 시 재계산용)
     private meva.models.AnalysisResult currentResult;
-    private meva.calculation.MaterialProperties calculator = new meva.calculation.MaterialProperties();
 
     /**
      * ResultPanel 생성자
@@ -115,7 +114,7 @@ public class ResultPanel extends JPanel {
         scrollPane.setBorder(BorderFactory.createLineBorder(Color.GRAY));
 
         // Save Results 버튼 생성
-        saveButton = new JButton("Save Results");
+        saveButton = new JButton("결과 저장");
         saveButton.setPreferredSize(new Dimension(120, 35));
         saveButton.setFont(new Font("Arial", Font.BOLD, 12));
         saveButton.setBackground(new Color(76, 175, 80)); // 녹색
@@ -146,7 +145,7 @@ public class ResultPanel extends JPanel {
         setPreferredSize(new Dimension(300, 0));
 
         // 타이틀 레이블
-        titleLabel = new JLabel("Results");
+        titleLabel = new JLabel("분석 결과");
         titleLabel.setFont(new Font("Arial", Font.BOLD, 14));
         titleLabel.setBorder(BorderFactory.createEmptyBorder(0, 0, 5, 0));
         add(titleLabel, BorderLayout.NORTH);
@@ -176,15 +175,15 @@ public class ResultPanel extends JPanel {
 
         if (!hasData) {
             JOptionPane.showMessageDialog(this,
-                    "No results to save. Please calculate first.",
-                    "No Data",
+                    "저장할 결과가 없습니다. 먼저 계산을 진행해 주세요.",
+                    "데이터 없음",
                     JOptionPane.WARNING_MESSAGE);
             return;
         }
 
         // 파일 선택 다이얼로그
         JFileChooser fileChooser = new JFileChooser();
-        fileChooser.setDialogTitle("Save Results");
+        fileChooser.setDialogTitle("결과 저장");
 
         // 기본 파일명 설정
         String timestamp = new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date());
@@ -208,8 +207,8 @@ public class ResultPanel extends JPanel {
             // 파일이 이미 존재하는 경우 확인
             if (fileToSave.exists()) {
                 int response = JOptionPane.showConfirmDialog(this,
-                        "File already exists. Do you want to overwrite it?",
-                        "Confirm Overwrite",
+                        "파일이 이미 존재합니다. 덮어쓰시겠습니까?",
+                        "덮어쓰기 확인",
                         JOptionPane.YES_NO_OPTION,
                         JOptionPane.WARNING_MESSAGE);
 
@@ -248,14 +247,14 @@ public class ResultPanel extends JPanel {
                 }
 
                 JOptionPane.showMessageDialog(this,
-                        "Results saved successfully to:\n" + fileToSave.getAbsolutePath(),
-                        "Save Successful",
+                        "결과가 성공적으로 저장되었습니다:\n" + fileToSave.getAbsolutePath(),
+                        "저장 완료",
                         JOptionPane.INFORMATION_MESSAGE);
 
             } catch (IOException e) {
                 JOptionPane.showMessageDialog(this,
-                        "Error saving file: " + e.getMessage(),
-                        "Save Error",
+                        "파일 저장 중 오류 발생: " + e.getMessage(),
+                        "저장 오류",
                         JOptionPane.ERROR_MESSAGE);
             }
         }
@@ -292,7 +291,7 @@ public class ResultPanel extends JPanel {
         }
 
         String modeText = isTrueStress ? "(True)" : "(Engineering)";
-        setTitleText("Results " + modeText);
+        setTitleText("분석 결과 " + modeText);
 
         // 1. 공통 값 (True/Eng 차이가 없거나 미미한 것들)
         updateValueByProperty("연신율", String.format("%.2f", currentResult.getElongation()));
@@ -311,9 +310,9 @@ public class ResultPanel extends JPanel {
         if (utsPt != null) {
             double uts = isTrueStress ? utsPt.getTrueStress() : utsPt.getEngineeringStress();
             updateValueByProperty("극한 인장 강도", String.format("%.3f", uts));
-            updateValueByProperty("최대 응력 (σmax)", String.format("%.3f", uts));
             double utsStrain = isTrueStress ? utsPt.getTrueStrain() : utsPt.getEngineeringStrain();
-            updateValueByProperty("최대 응력 시 변형률", String.format("%.4f", utsStrain));
+            // TODO: 추후 uniformElongation 필드가 모델에 추가되면 getter 사용 고려
+            updateValueByProperty("균일 연신율", String.format("%.4f", utsStrain));
         }
 
         // 항복 강도 (선택된 모드에 따라 결정)
@@ -374,21 +373,16 @@ public class ResultPanel extends JPanel {
         updateValueByProperty("레질리언스 계수", String.format("%.3f", resilience));
 
         // 기타
-        updateValueByProperty("탄성 한계", String.format("%.3f", currentResult.getElasticLimit()));
         updateValueByProperty("비례 한계", String.format("%.3f", currentResult.getProportionalLimit()));
         updateValueByProperty("파괴 응력", String.format("%.3f", currentResult.getFractureStress()));
         updateValueByProperty("파괴 변형률", String.format("%.4f", currentResult.getFractureStrain()));
 
-        // 4. 네킹 시작 (UTS Strain)
-        if (utsPt != null) {
-            double necking = isTrueStress ? utsPt.getTrueStrain() : utsPt.getEngineeringStrain();
-            updateValueByProperty("네킹 시작 변형률", String.format("%.4f", necking));
-        }
+        // 신규 추가된 주요 물성치 표시
+        updateValueByProperty("가공경화지수", String.format("%.3f", currentResult.getStrainHardeningExponent()));
+        updateValueByProperty("강도 계수", String.format("%.1f", currentResult.getStrengthCoefficient()));
+        updateValueByProperty("스프링백", String.format("%.4f", currentResult.getSpringback()));
     }
 
-    /**
-     * 결과 테이블을 업데이트합니다. (기존 호환성 유지)
-     */
     public void updateResults(Object[][] results) {
         if (results == null) {
             clearResults();

@@ -17,7 +17,6 @@ import org.jfree.data.xy.XYSeries;
 import org.jfree.data.xy.XYSeriesCollection;
 
 import java.awt.*;
-import java.awt.geom.Ellipse2D;
 import java.awt.geom.Point2D;
 import java.util.List;
 
@@ -209,7 +208,7 @@ public class ChartRenderer {
             pointDataset.addSeries(s);
 
             pointRenderer.setSeriesPaint(seriesIndex, ChartStyler.UTS_POINT_COLOR);
-            pointRenderer.setSeriesShape(seriesIndex, new Ellipse2D.Double(-4, -4, 8, 8));
+            pointRenderer.setSeriesShape(seriesIndex, new java.awt.geom.Rectangle2D.Double(-4, -4, 8, 8));
             addAnnotation("UTS", x, y, -Math.PI / 4, ChartStyler.UTS_POINT_COLOR, plot);
             seriesIndex++;
         }
@@ -222,7 +221,7 @@ public class ChartRenderer {
             pointDataset.addSeries(s);
 
             pointRenderer.setSeriesPaint(seriesIndex, ChartStyler.YIELD_POINT_COLOR);
-            pointRenderer.setSeriesShape(seriesIndex, new Ellipse2D.Double(-4, -4, 8, 8));
+            pointRenderer.setSeriesShape(seriesIndex, new java.awt.geom.Rectangle2D.Double(-4, -4, 8, 8));
             addAnnotation("Yield", x, y, Math.PI / 2, ChartStyler.YIELD_POINT_COLOR, plot);
             seriesIndex++;
         }
@@ -236,7 +235,7 @@ public class ChartRenderer {
                 pointDataset.addSeries(s);
 
                 pointRenderer.setSeriesPaint(seriesIndex, ChartStyler.UPPER_YIELD_COLOR);
-                pointRenderer.setSeriesShape(seriesIndex, new Ellipse2D.Double(-4, -4, 8, 8));
+                pointRenderer.setSeriesShape(seriesIndex, new java.awt.geom.Rectangle2D.Double(-4, -4, 8, 8));
                 addAnnotation("UYP", x, y, Math.PI / 4, ChartStyler.UPPER_YIELD_COLOR, plot);
                 seriesIndex++;
             }
@@ -248,7 +247,7 @@ public class ChartRenderer {
                 pointDataset.addSeries(s);
 
                 pointRenderer.setSeriesPaint(seriesIndex, ChartStyler.UPPER_YIELD_COLOR);
-                pointRenderer.setSeriesShape(seriesIndex, new Ellipse2D.Double(-4, -4, 8, 8));
+                pointRenderer.setSeriesShape(seriesIndex, new java.awt.geom.Rectangle2D.Double(-4, -4, 8, 8));
                 addAnnotation("LYP", x, y, -Math.PI / 2, ChartStyler.UPPER_YIELD_COLOR, plot);
                 seriesIndex++;
             }

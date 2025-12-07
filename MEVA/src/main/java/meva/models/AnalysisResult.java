@@ -8,117 +8,261 @@ package meva.models;
  */
 public class AnalysisResult {
     // 주요 데이터 포인트 (그래프 마킹용)
-    private StressStrainPoint utsPoint;        // 최대 인장 강도 지점 (Engineering 기준)
-    private StressStrainPoint yieldPoint;      // 대표 항복점 (0.2% Offset 또는 상항복점)
+    private StressStrainPoint utsPoint; // 최대 인장 강도 지점 (Engineering 기준)
+    private StressStrainPoint yieldPoint; // 대표 항복점 (0.2% Offset 또는 상항복점)
     private StressStrainPoint upperYieldPoint; // 상항복점 (불연속 항복 시)
     private StressStrainPoint lowerYieldPoint; // 하항복점 (불연속 항복 시)
     private StressStrainPoint offsetYieldPoint; // 0.2% 오프셋 항복점 (True 기준)
     private StressStrainPoint offsetYieldPointEng; // 0.2% 오프셋 항복점 (Engineering 기준)
-    private StressStrainPoint fracturePoint;   // 파단점
+    private StressStrainPoint fracturePoint; // 파단점
 
     // 항복 거동 타입
     public enum YieldType {
-        OFFSET_02,          // 0.2% 오프셋 (연속 항복)
-        DISCONTINUOUS       // 불연속 항복 (상/하항복점 존재)
+        OFFSET_02, // 0.2% 오프셋 (연속 항복)
+        DISCONTINUOUS // 불연속 항복 (상/하항복점 존재)
     }
+
     private YieldType yieldType = YieldType.OFFSET_02; // 기본값
 
     // 계산된 물성치 (ResultPanel 표시용)
-    private double youngsModulus;      // 영률 (GPa) (True Stress 기준)
+    private double youngsModulus; // 영률 (GPa) (True Stress 기준)
     private double elasticLineIntercept; // 탄성 기울기 선의 Y절편 (True Stress 기준)
-    private double youngsModulusEng;      // 영률 (GPa) (Engineering Stress 기준)
+    private double youngsModulusEng; // 영률 (GPa) (Engineering Stress 기준)
     private double elasticLineInterceptEng; // 탄성 기울기 선의 Y절편 (Engineering Stress 기준)
-    private double yieldStrength;      // 항복 강도 (MPa)
-    private double tensileStrength;    // UTS (MPa)
-    private double elongation;         // 연신율 (%)
-    private double reductionOfArea;    // 단면 감소율 (%)
-    private double toughness;          // 인성 (MJ/m³)
-    private double resilience;         // 탄성 에너지 (MJ/m³) (Triangle 근사값)
+    private double yieldStrength; // 항복 강도 (MPa)
+    private double tensileStrength; // UTS (MPa)
+    private double elongation; // 연신율 (%)
+    private double reductionOfArea; // 단면 감소율 (%)
+    private double toughness; // 인성 (MJ/m³)
+    private double resilience; // 탄성 에너지 (MJ/m³) (Triangle 근사값)
     private double resilienceIntegral; // 탄성 에너지 (MJ/m³) (Integral 실제 적분값 - Auto Yield 기준)
     private double resilienceIntegralOffset; // 탄성 에너지 (MJ/m³) (Integral 실제 적분값 - Offset 0.2% 기준)
-    private double elasticLimit;       // 탄성 한계 (MPa)
-    private double proportionalLimit;  // 비례 한계 (MPa)
-    private double neckingStartStrain; // 네킹 시작 변형률
-    private double fractureStress;     // 파괴 응력 (MPa)
-    private double fractureStrain;     // 파괴 변형률
+    private double proportionalLimit; // 비례 한계 (MPa)
+    private double uniformElongation; // 균일 연신율 (Uniform Elongation)
+    private double fractureStress; // 파괴 응력 (MPa)
+    private double fractureStrain; // 파괴 변형률
+    private double strainHardeningExponent; // 가공경화지수 (n)
+    private double strengthCoefficient; // 강도 계수 (K) (MPa)
+    private double springback; // 스프링백 (Elastic Recovery)
 
     // 생성자
-    public AnalysisResult() {}
+    public AnalysisResult() {
+    }
 
     // Getters & Setters
-    public StressStrainPoint getUtsPoint() { return utsPoint; }
-    public void setUtsPoint(StressStrainPoint utsPoint) { this.utsPoint = utsPoint; }
+    public StressStrainPoint getUtsPoint() {
+        return utsPoint;
+    }
 
-    public StressStrainPoint getYieldPoint() { return yieldPoint; }
-    public void setYieldPoint(StressStrainPoint yieldPoint) { this.yieldPoint = yieldPoint; }
+    public void setUtsPoint(StressStrainPoint utsPoint) {
+        this.utsPoint = utsPoint;
+    }
 
-    public StressStrainPoint getFracturePoint() { return fracturePoint; }
-    public void setFracturePoint(StressStrainPoint fracturePoint) { this.fracturePoint = fracturePoint; }
+    public StressStrainPoint getYieldPoint() {
+        return yieldPoint;
+    }
 
-    public StressStrainPoint getUpperYieldPoint() { return upperYieldPoint; }
-    public void setUpperYieldPoint(StressStrainPoint upperYieldPoint) { this.upperYieldPoint = upperYieldPoint; }
+    public void setYieldPoint(StressStrainPoint yieldPoint) {
+        this.yieldPoint = yieldPoint;
+    }
 
-    public StressStrainPoint getLowerYieldPoint() { return lowerYieldPoint; }
-    public void setLowerYieldPoint(StressStrainPoint lowerYieldPoint) { this.lowerYieldPoint = lowerYieldPoint; }
+    public StressStrainPoint getFracturePoint() {
+        return fracturePoint;
+    }
 
-    public StressStrainPoint getOffsetYieldPoint() { return offsetYieldPoint; }
-    public void setOffsetYieldPoint(StressStrainPoint offsetYieldPoint) { this.offsetYieldPoint = offsetYieldPoint; }
+    public void setFracturePoint(StressStrainPoint fracturePoint) {
+        this.fracturePoint = fracturePoint;
+    }
 
-    public StressStrainPoint getOffsetYieldPointEng() { return offsetYieldPointEng; }
-    public void setOffsetYieldPointEng(StressStrainPoint offsetYieldPointEng) { this.offsetYieldPointEng = offsetYieldPointEng; }
+    public StressStrainPoint getUpperYieldPoint() {
+        return upperYieldPoint;
+    }
 
-    public YieldType getYieldType() { return yieldType; }
-    public void setYieldType(YieldType yieldType) { this.yieldType = yieldType; }
+    public void setUpperYieldPoint(StressStrainPoint upperYieldPoint) {
+        this.upperYieldPoint = upperYieldPoint;
+    }
 
-    public double getYoungsModulus() { return youngsModulus; }
-    public void setYoungsModulus(double youngsModulus) { this.youngsModulus = youngsModulus; }
+    public StressStrainPoint getLowerYieldPoint() {
+        return lowerYieldPoint;
+    }
 
-    public double getElasticLineIntercept() { return elasticLineIntercept; }
-    public void setElasticLineIntercept(double elasticLineIntercept) { this.elasticLineIntercept = elasticLineIntercept; }
+    public void setLowerYieldPoint(StressStrainPoint lowerYieldPoint) {
+        this.lowerYieldPoint = lowerYieldPoint;
+    }
 
-    public double getYoungsModulusEng() { return youngsModulusEng; }
-    public void setYoungsModulusEng(double youngsModulusEng) { this.youngsModulusEng = youngsModulusEng; }
+    public StressStrainPoint getOffsetYieldPoint() {
+        return offsetYieldPoint;
+    }
 
-    public double getElasticLineInterceptEng() { return elasticLineInterceptEng; }
-    public void setElasticLineInterceptEng(double elasticLineInterceptEng) { this.elasticLineInterceptEng = elasticLineInterceptEng; }
+    public void setOffsetYieldPoint(StressStrainPoint offsetYieldPoint) {
+        this.offsetYieldPoint = offsetYieldPoint;
+    }
 
-    public double getYieldStrength() { return yieldStrength; }
-    public void setYieldStrength(double yieldStrength) { this.yieldStrength = yieldStrength; }
+    public StressStrainPoint getOffsetYieldPointEng() {
+        return offsetYieldPointEng;
+    }
 
-    public double getTensileStrength() { return tensileStrength; }
-    public void setTensileStrength(double tensileStrength) { this.tensileStrength = tensileStrength; }
+    public void setOffsetYieldPointEng(StressStrainPoint offsetYieldPointEng) {
+        this.offsetYieldPointEng = offsetYieldPointEng;
+    }
 
-    public double getElongation() { return elongation; }
-    public void setElongation(double elongation) { this.elongation = elongation; }
+    public YieldType getYieldType() {
+        return yieldType;
+    }
 
-    public double getReductionOfArea() { return reductionOfArea; }
-    public void setReductionOfArea(double reductionOfArea) { this.reductionOfArea = reductionOfArea; }
+    public void setYieldType(YieldType yieldType) {
+        this.yieldType = yieldType;
+    }
 
-    public double getToughness() { return toughness; }
-    public void setToughness(double toughness) { this.toughness = toughness; }
+    public double getYoungsModulus() {
+        return youngsModulus;
+    }
 
-    public double getResilience() { return resilience; }
-    public void setResilience(double resilience) { this.resilience = resilience; }
+    public void setYoungsModulus(double youngsModulus) {
+        this.youngsModulus = youngsModulus;
+    }
 
-    public double getResilienceIntegral() { return resilienceIntegral; }
-    public void setResilienceIntegral(double resilienceIntegral) { this.resilienceIntegral = resilienceIntegral; }
+    public double getElasticLineIntercept() {
+        return elasticLineIntercept;
+    }
 
-    public double getResilienceIntegralOffset() { return resilienceIntegralOffset; }
-    public void setResilienceIntegralOffset(double resilienceIntegralOffset) { this.resilienceIntegralOffset = resilienceIntegralOffset; }
+    public void setElasticLineIntercept(double elasticLineIntercept) {
+        this.elasticLineIntercept = elasticLineIntercept;
+    }
 
-    public double getElasticLimit() { return elasticLimit; }
-    public void setElasticLimit(double elasticLimit) { this.elasticLimit = elasticLimit; }
+    public double getYoungsModulusEng() {
+        return youngsModulusEng;
+    }
 
-    public double getProportionalLimit() { return proportionalLimit; }
-    public void setProportionalLimit(double proportionalLimit) { this.proportionalLimit = proportionalLimit; }
+    public void setYoungsModulusEng(double youngsModulusEng) {
+        this.youngsModulusEng = youngsModulusEng;
+    }
 
-    public double getNeckingStartStrain() { return neckingStartStrain; }
-    public void setNeckingStartStrain(double neckingStartStrain) { this.neckingStartStrain = neckingStartStrain; }
+    public double getElasticLineInterceptEng() {
+        return elasticLineInterceptEng;
+    }
 
-    public double getFractureStress() { return fractureStress; }
-    public void setFractureStress(double fractureStress) { this.fractureStress = fractureStress; }
+    public void setElasticLineInterceptEng(double elasticLineInterceptEng) {
+        this.elasticLineInterceptEng = elasticLineInterceptEng;
+    }
 
-    public double getFractureStrain() { return fractureStrain; }
-    public void setFractureStrain(double fractureStrain) { this.fractureStrain = fractureStrain; }
+    public double getYieldStrength() {
+        return yieldStrength;
+    }
+
+    public void setYieldStrength(double yieldStrength) {
+        this.yieldStrength = yieldStrength;
+    }
+
+    public double getTensileStrength() {
+        return tensileStrength;
+    }
+
+    public void setTensileStrength(double tensileStrength) {
+        this.tensileStrength = tensileStrength;
+    }
+
+    public double getElongation() {
+        return elongation;
+    }
+
+    public void setElongation(double elongation) {
+        this.elongation = elongation;
+    }
+
+    public double getReductionOfArea() {
+        return reductionOfArea;
+    }
+
+    public void setReductionOfArea(double reductionOfArea) {
+        this.reductionOfArea = reductionOfArea;
+    }
+
+    public double getToughness() {
+        return toughness;
+    }
+
+    public void setToughness(double toughness) {
+        this.toughness = toughness;
+    }
+
+    public double getResilience() {
+        return resilience;
+    }
+
+    public void setResilience(double resilience) {
+        this.resilience = resilience;
+    }
+
+    public double getResilienceIntegral() {
+        return resilienceIntegral;
+    }
+
+    public void setResilienceIntegral(double resilienceIntegral) {
+        this.resilienceIntegral = resilienceIntegral;
+    }
+
+    public double getResilienceIntegralOffset() {
+        return resilienceIntegralOffset;
+    }
+
+    public void setResilienceIntegralOffset(double resilienceIntegralOffset) {
+        this.resilienceIntegralOffset = resilienceIntegralOffset;
+    }
+
+    public double getProportionalLimit() {
+        return proportionalLimit;
+    }
+
+    public void setProportionalLimit(double proportionalLimit) {
+        this.proportionalLimit = proportionalLimit;
+    }
+
+    public double getFractureStress() {
+        return fractureStress;
+    }
+
+    public void setFractureStress(double fractureStress) {
+        this.fractureStress = fractureStress;
+    }
+
+    public double getFractureStrain() {
+        return fractureStrain;
+    }
+
+    public void setFractureStrain(double fractureStrain) {
+        this.fractureStrain = fractureStrain;
+    }
+
+    public double getStrainHardeningExponent() {
+        return strainHardeningExponent;
+    }
+
+    public void setStrainHardeningExponent(double strainHardeningExponent) {
+        this.strainHardeningExponent = strainHardeningExponent;
+    }
+
+    public double getStrengthCoefficient() {
+        return strengthCoefficient;
+    }
+
+    public void setStrengthCoefficient(double strengthCoefficient) {
+        this.strengthCoefficient = strengthCoefficient;
+    }
+
+    public double getSpringback() {
+        return springback;
+    }
+
+    public void setSpringback(double springback) {
+        this.springback = springback;
+    }
+
+    public double getUniformElongation() {
+        return uniformElongation;
+    }
+
+    public void setUniformElongation(double uniformElongation) {
+        this.uniformElongation = uniformElongation;
+    }
 }
-

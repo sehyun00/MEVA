@@ -227,28 +227,28 @@ public class GraphPanel extends JPanel implements ChartInputHandler.InteractionL
         toughnessCheckBox.addActionListener(e -> updateVisualization());
 
         // 버튼 생성
-        zoomInButton = new JButton("Zoom In");
+        zoomInButton = new JButton("확대");
         zoomInButton.addActionListener(e -> {
             chartManager.zoomIn();
             if (zoomInListener != null)
                 zoomInListener.actionPerformed(e);
         });
 
-        zoomOutButton = new JButton("Zoom Out");
+        zoomOutButton = new JButton("축소");
         zoomOutButton.addActionListener(e -> {
             chartManager.zoomOut();
             if (zoomOutListener != null)
                 zoomOutListener.actionPerformed(e);
         });
 
-        resetZoomButton = new JButton("Reset Zoom");
+        resetZoomButton = new JButton("초기화");
         resetZoomButton.addActionListener(e -> {
             chartManager.resetZoom();
             if (resetZoomListener != null)
                 resetZoomListener.actionPerformed(e);
         });
 
-        exportChartButton = new JButton("Export Chart");
+        exportChartButton = new JButton("차트 저장");
         exportChartButton.addActionListener(e -> {
             chartManager.doSaveAs();
             if (exportChartListener != null)
@@ -274,7 +274,7 @@ public class GraphPanel extends JPanel implements ChartInputHandler.InteractionL
      */
     public void plotStressStrainCurve(List<StressStrainPoint> data) {
         if (data == null || data.isEmpty()) {
-            JOptionPane.showMessageDialog(this, "표시할 데이터가 없습니다.", "Warning", JOptionPane.WARNING_MESSAGE);
+            JOptionPane.showMessageDialog(this, "표시할 데이터가 없습니다.", "경고", JOptionPane.WARNING_MESSAGE);
             return;
         }
 
