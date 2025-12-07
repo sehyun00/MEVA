@@ -28,9 +28,14 @@ public class ResultPanel extends JPanel {
     private DefaultTableModel tableModel; // 테이블의 데이터 모델 (행/열 관리)
     private JScrollPane scrollPane; // 테이블에 스크롤 기능을 제공하는 컨테이너
     private JButton saveButton; // 결과를 CSV 파일로 저장하는 버튼
+    private JCheckBox unitToggle; // [New] 에너지 단위 변환 토글 (MJ/m³ <-> J/mm³)
     private JLabel titleLabel; // 패널 제목 레이블 (동적 변경용)
+
     // 외부 리스너
     private ActionListener saveButtonListener;
+
+    // 현재 선택된 에너지 단위 (Default: MJ/m³)
+    private boolean useJouleMM3 = false; // false=MJ/m³, true=J/mm³
 
     // 테이블 데이터
     private static final String[] COLUMN_NAMES = { "속성", "값", "단위" };
@@ -45,7 +50,8 @@ public class ResultPanel extends JPanel {
             { "레질리언스 계수 (Resilience)", "-", "MJ/m³" },
             { "비례 한계", "-", "MPa" },
             { "파괴 응력", "-", "MPa" },
-            { "파괴 변형률", "-", "-" }
+            { "파괴 변형률", "-", "-" },
+            { "소성 연신율 (Plastic Elongation)", "-", "-" }
     };
 
     // 현재 데이터 상태 저장 (모드 변경 시 재계산용)
@@ -110,6 +116,26 @@ public class ResultPanel extends JPanel {
         scrollPane = new JScrollPane(resultsTable);
         scrollPane.setBorder(BorderFactory.createLineBorder(Color.GRAY));
 
+        // [New] 단위 변환 토글
+        unitToggle = new JCheckBox("J/mm³ 단위 변환");
+        unitToggle.setToolTipText("체크 시 에너지 단위를 J/mm³로 표시합니다. (1 MJ/m³ = 0.001 J/mm³)");
+        unitToggle.addActionListener(e -> {
+            useJouleMM3 = unitToggle.isSelected();
+            // 현재 결과가 있으면 즉시 업데이트
+            if (currentResult != null) {
+                // 기존 모드 정보(GraphPanel과 연동된 상태)를 유지해야 함
+                // 여기서는 단순히 재계산 요청 없이 현재 Result 객체로 다시 그리기만 수행
+                // 단, MainFrame이나 GraphPanel로부터 현재 True/Eng, YieldMode 상태를 알 수 없으면
+                // 기본값으로 덮어써질 위험이 있음.
+                // 따라서 updateMode 호출 대신 화면 갱신만 처리하도록 리팩토링 필요하지만,
+                // ResultPanel이 상태(isTrueStress 등)를 저장하고 있지 않다면 한계가 있음.
+                // 일단 기본값으로 redraw 하거나, 외부에서 update 요청을 받도록 설계해야 함.
+                // 여기서는 "값만 변환"하는 가벼운 refresh 메서드를 호출하거나,
+                // updateMode에 저장된 상태 필드를 추가하여 활용.
+                refreshValues();
+            }
+        });
+
         // Save Results 버튼 생성
         saveButton = new JButton("결과 저장");
         saveButton.setPreferredSize(new Dimension(120, 35));
@@ -146,6 +172,12 @@ public class ResultPanel extends JPanel {
         titleLabel.setFont(new Font("Dialog", Font.BOLD, 14));
         titleLabel.setBorder(BorderFactory.createEmptyBorder(0, 0, 5, 0));
         add(titleLabel, BorderLayout.NORTH);
+
+        // 상단: 타이틀 + 단위 토글
+        JPanel topPanel = new JPanel(new BorderLayout());
+        topPanel.add(titleLabel, BorderLayout.WEST);
+        topPanel.add(unitToggle, BorderLayout.EAST);
+        add(topPanel, BorderLayout.NORTH);
 
         // 테이블 (중앙)
         add(scrollPane, BorderLayout.CENTER);
@@ -281,7 +313,17 @@ public class ResultPanel extends JPanel {
      * @param useTriangleResilience 탄성 에너지 삼각형 모드 여부
      * @param yieldMode             선택된 항복점 모드 (0:Auto, 1:Offset, 2:Upper/Lower)
      */
+    // 현재 표시 모드 상태 저장
+    private boolean lastIsTrueStress;
+    private boolean lastUseTriangleResilience;
+    private int lastYieldMode;
+
     public void updateMode(boolean isTrueStress, boolean useTriangleResilience, int yieldMode) {
+        // 상태 저장 (단위 토글 시 재사용)
+        this.lastIsTrueStress = isTrueStress;
+        this.lastUseTriangleResilience = useTriangleResilience;
+        this.lastYieldMode = yieldMode;
+
         if (currentResult == null) {
             clearResults();
             return;
@@ -291,9 +333,13 @@ public class ResultPanel extends JPanel {
         setTitleText("분석 결과 " + modeText);
 
         // 1. 공통 값 (True/Eng 차이가 없거나 미미한 것들)
+        // 1. 공통 값
         updateValueByProperty("연신율", String.format("%.2f", currentResult.getElongation()));
         updateValueByProperty("단면 감소율", String.format("%.2f", currentResult.getReductionOfArea()));
-        updateValueByProperty("인성 (Toughness)", String.format("%.3f", currentResult.getToughness()));
+
+        // 인성 (단위 변환 적용)
+        double toughness = currentResult.getToughness();
+        updateEnergyValue("인성 (Toughness)", toughness);
 
         // 2. 모드에 따라 달라지는 값 (Stress/Modulus)
         double E_GPa = isTrueStress ? currentResult.getYoungsModulus() : currentResult.getYoungsModulusEng();
@@ -367,12 +413,26 @@ public class ResultPanel extends JPanel {
                 resilience = currentResult.getResilienceIntegralOffset(); // Offset 기준 (좁은 범위)
             }
         }
-        updateValueByProperty("레질리언스 계수", String.format("%.3f", resilience));
+        // 레질리언스 (단위 변환 적용)
+        updateEnergyValue("레질리언스 계수", resilience);
 
         // 기타
         updateValueByProperty("비례 한계", String.format("%.3f", currentResult.getProportionalLimit()));
         updateValueByProperty("파괴 응력", String.format("%.3f", currentResult.getFractureStress()));
         updateValueByProperty("파괴 변형률", String.format("%.4f", currentResult.getFractureStrain()));
+
+        // [New] 소성 연신율 (Plastic Elongation) 계산
+        // ε_p = ε_f - (σ_f / E)
+        double fractureStrain = currentResult.getFractureStrain();
+        double fractureStress = currentResult.getFractureStress(); // MPa
+        if (E_GPa > 0) {
+            double plasticStrain = fractureStrain - (fractureStress / (E_GPa * 1000.0));
+            if (plasticStrain < 0)
+                plasticStrain = 0;
+            updateValueByProperty("소성 연신율 (Plastic Elongation)", String.format("%.4f", plasticStrain));
+        } else {
+            updateValueByProperty("소성 연신율 (Plastic Elongation)", "-");
+        }
 
     }
 
@@ -498,6 +558,42 @@ public class ResultPanel extends JPanel {
     public void setTitleText(String text) {
         if (titleLabel != null) {
             titleLabel.setText(text);
+        }
+
+    }
+
+    /**
+     * [New] 현재 저장된 상태를 바탕으로 값만 새로고침 (단위 토글 용)
+     */
+    private void refreshValues() {
+        updateMode(lastIsTrueStress, lastUseTriangleResilience, lastYieldMode);
+    }
+
+    /**
+     * [New] 에너지 값(MJ/m³)을 현재 설정된 단위로 변환하여 테이블에 표시
+     */
+    private void updateEnergyValue(String propertyName, double valueMJ) {
+        double displayValue = valueMJ;
+        String unit = "MJ/m³";
+
+        if (useJouleMM3) {
+            // 1 MJ/m³ = 1 MPa = 1 N/mm² = 1 (N*m)/mm³ * 10^-3 ?
+            // 1 J = 1 N*m. 1 mm³ = 10^-9 m³.
+            // 1 J/mm³ = 10^9 J/m³ = 1000 MJ/m³.
+            // Therefore 1 MJ/m³ = 0.001 J/mm³.
+            displayValue = valueMJ * 0.001;
+            unit = "J/mm³";
+        }
+
+        updateValueByProperty(propertyName, String.format("%.4f", displayValue)); // J/mm³는 값이 작으므로 소수점 4자리
+
+        // 단위 컬럼 업데이트
+        for (int i = 0; i < tableModel.getRowCount(); i++) {
+            String prop = tableModel.getValueAt(i, 0).toString();
+            if (prop.contains(propertyName)) {
+                tableModel.setValueAt(unit, i, 2); // Unit Column
+                break;
+            }
         }
     }
 }

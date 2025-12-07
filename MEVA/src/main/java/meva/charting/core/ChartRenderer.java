@@ -36,6 +36,7 @@ public class ChartRenderer {
     private boolean showElasticRegion;
     private boolean showPlasticRegion;
     private boolean showFracturePoint; // [New] 파단점 표시 여부
+    private boolean showUnloadingLine; // [New] Unloading Line (탄성 회복선) 표시 여부
     private int selectedYieldMode; // 0: Auto, 1: Offset, 2: Discontinuous
 
     // 상태값
@@ -45,6 +46,11 @@ public class ChartRenderer {
         // 기본값
         this.showSlopeLine = true;
         this.showFracturePoint = true; // 기본적으로 표시
+        this.showUnloadingLine = false; // [Default: False]
+    }
+
+    public void setUnloadingLineVisible(boolean visible) {
+        this.showUnloadingLine = visible;
     }
 
     /**
@@ -83,6 +89,7 @@ public class ChartRenderer {
         plot.setDomainGridlinesVisible(true);
         plot.setDataset(1, null);
         plot.setDataset(2, null);
+        plot.setDataset(3, null); // Clear Unloading Line dataset
 
         if (result == null)
             return;
@@ -131,6 +138,61 @@ public class ChartRenderer {
 
         // 5. 영역 표시
         renderRegions(plot, data, refYield);
+        // 6. Unloading Line (탄성 회복선) 그리기
+        if (showUnloadingLine) {
+            renderUnloadingLine(plot, result, data);
+        }
+    }
+
+    private void renderUnloadingLine(XYPlot plot, AnalysisResult result, List<StressStrainPoint> data) {
+        if (result == null || data == null || data.isEmpty())
+            return;
+
+        // 1. 파단점 찾기
+        StressStrainPoint fracture = data.get(data.size() - 1);
+        double fractureStrain = isTrueStressMode ? fracture.getTrueStrain() : fracture.getEngineeringStrain();
+        double fractureStress = isTrueStressMode ? fracture.getTrueStress() : fracture.getEngineeringStress();
+
+        // 2. 기울기 (Young's Modulus in MPa)
+        double E_GPa = isTrueStressMode ? result.getYoungsModulus() : result.getYoungsModulusEng();
+        if (E_GPa <= 0)
+            return; // 기울기가 없으면 그릴 수 없음
+        double E_MPa = E_GPa * 1000.0;
+
+        // 3. X절편 계산 (Plastic Elongation Point)
+        // Sigma = E * (epsilon - epsilon_p) => epsilon_p = epsilon - moment_sigma/E
+        double plasticStrain = fractureStrain - (fractureStress / E_MPa);
+        if (plasticStrain < 0)
+            plasticStrain = 0;
+
+        // 4. 선 그리기 (Fracture -> X-Intercept)
+        XYSeries unloadingSeries = new XYSeries("Unloading Line");
+        unloadingSeries.add(fractureStrain, fractureStress);
+        unloadingSeries.add(plasticStrain, 0.0);
+
+        XYSeriesCollection dataset = new XYSeriesCollection();
+        dataset.addSeries(unloadingSeries);
+
+        // 렌더러 설정 (파란색 점선)
+        XYLineAndShapeRenderer renderer = new XYLineAndShapeRenderer(true, false);
+        renderer.setSeriesPaint(0, Color.BLUE);
+        renderer.setSeriesStroke(0,
+                new BasicStroke(1.5f, BasicStroke.CAP_BUTT, BasicStroke.JOIN_MITER, 10.0f, new float[] { 5.0f }, 0.0f));
+
+        // Plot에 추가 (Dataset Index 3 사용)
+        plot.setDataset(3, dataset);
+        plot.setRenderer(3, renderer);
+
+        // 5. 어노테이션 (소성 연신율 값)
+        XYPointerAnnotation ann = new XYPointerAnnotation(
+                String.format("Plastic ε: %.4f", plasticStrain),
+                plasticStrain, 0, -Math.PI / 2); // 위쪽을 가리키도록
+        ann.setTipRadius(0);
+        ann.setBaseRadius(30);
+        ann.setFont(new Font("SansSerif", Font.BOLD, 12));
+        ann.setPaint(Color.BLUE);
+        ann.setArrowPaint(Color.BLUE);
+        plot.addAnnotation(ann);
     }
 
     private void renderSlopeLines(XYPlot plot, AnalysisResult result, StressStrainPoint refYield,
@@ -171,15 +233,30 @@ public class ChartRenderer {
         // 3-2. 0.2% Offset Line
         double offsetX = 0.002;
         XYSeries offsetSeries = new XYSeries("0.2% Offset");
-        double startX = (hStart != null) ? hStart.x : 0.0;
-        double offX1 = startX + offsetX;
-        double offY1 = E_MPa * startX + intercept;
 
-        double offX2 = (maxY - intercept) / E_MPa + offsetX;
-        double offY2 = maxY;
-        offsetSeries.add(offX1, offY1);
+        // [Fix] Extend to Bottom (X-axis)
+        offsetSeries.add(offsetX, 0.0); // Start at (0.002, 0)
+
+        // Calculate End Point (Stop at Yield Point)
+        double offsetLimitY = (refYield != null)
+                ? (isTrueStressMode ? refYield.getTrueStress() : refYield.getEngineeringStress())
+                : maxY;
+
+        double offX2 = (offsetLimitY - intercept) / E_MPa + offsetX;
+        double offY2 = offsetLimitY;
+
         offsetSeries.add(offX2, offY2);
         slopeDataset.addSeries(offsetSeries);
+
+        // [New] Offset Annotation at Bottom
+        XYPointerAnnotation offsetAnn = new XYPointerAnnotation(
+                "0.2%", offsetX, 0, -Math.PI / 2);
+        offsetAnn.setTipRadius(0);
+        offsetAnn.setBaseRadius(20);
+        offsetAnn.setFont(new Font("SansSerif", Font.PLAIN, 10));
+        offsetAnn.setPaint(ChartStyler.OFFSET_LINE_COLOR);
+        offsetAnn.setArrowPaint(ChartStyler.OFFSET_LINE_COLOR);
+        plot.addAnnotation(offsetAnn);
 
         plot.setDataset(2, slopeDataset);
 

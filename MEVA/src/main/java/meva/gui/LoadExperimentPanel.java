@@ -238,7 +238,9 @@ public class LoadExperimentPanel extends JPanel {
             return;
         }
 
-        int experimentId = (int) tableModel.getValueAt(selectedRow, 0);
+        // [Fix] 정렬 시 뷰 인덱스와 모델 인덱스가 다르므로 변환 필요
+        int modelRow = table.convertRowIndexToModel(selectedRow);
+        int experimentId = (int) tableModel.getValueAt(modelRow, 0);
 
         // DB에서 상세 조회
         ExperimentDAO dao = new ExperimentDAO();

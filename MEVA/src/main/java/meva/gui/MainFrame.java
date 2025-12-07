@@ -26,8 +26,8 @@ import meva.calculation.MaterialProperties;
  */
 public class MainFrame extends JFrame {
     // UI 컴포넌트
-    private MenuBar menuBar; // 상단 메뉴바 (File, Edit, View 등)
-    private JToolBar toolBar; // 자주 사용하는 기능을 아이콘으로 제공하는 툴바
+    // private MenuBar menuBar; // [Removed] UI Optimization
+    // private JToolBar toolBar; // [Removed] UI Optimization
     private JPanel mainPanel; // 전체 레이아웃을 담는 메인 컨테이너
     private InputPanel inputPanel; // 좌측: 사용자 입력 패널
     private GraphPanel visualizationPanel; // 중앙: 그래프 시각화 패널
@@ -83,12 +83,7 @@ public class MainFrame extends JFrame {
      * 모든 컴포넌트 초기화
      */
     private void initializeComponents() {
-        // MenuBar 초기화
-        menuBar = new MenuBar();
-        setupMenuBarListeners();
-
-        // ToolBar 초기화
-        toolBar = createToolBar();
+        // MenuBar & ToolBar 초기화 제거 (UI Optimization)
 
         // 메인 패널 초기화 (BorderLayout)
         mainPanel = new JPanel(new BorderLayout());
@@ -108,31 +103,6 @@ public class MainFrame extends JFrame {
 
         // StatusBar 초기화 (SOUTH)
         statusBar = createStatusBar();
-    }
-
-    /**
-     * MenuBar 이벤트 리스너 설정
-     */
-    private void setupMenuBarListeners() {
-        menuBar.setFileNewListener(e -> onNewProject());
-        menuBar.setFileOpenListener(e -> onOpenProject());
-        menuBar.setFileSaveListener(e -> onSaveProject());
-        menuBar.setFileSaveAsListener(e -> onSaveAsProject());
-        menuBar.setFileExportListener(e -> onExportData());
-        menuBar.setFileExitListener(e -> onExit());
-        menuBar.setEditUndoListener(e -> onUndo());
-        menuBar.setEditRedoListener(e -> onRedo());
-        menuBar.setEditPreferencesListener(e -> onPreferences());
-        menuBar.setViewZoomInListener(e -> onZoomIn());
-        menuBar.setViewZoomOutListener(e -> onZoomOut());
-        menuBar.setViewResetZoomListener(e -> onResetZoom());
-        menuBar.setViewToggleGridListener(e -> onToggleGrid());
-        menuBar.setViewToggleLegendListener(e -> onToggleLegend());
-        menuBar.setToolsCalculateListener(e -> onCalculate());
-        menuBar.setToolsClearDataListener(e -> onClearData());
-        menuBar.setToolsDataValidatorListener(e -> onDataValidator());
-        menuBar.setHelpUserGuideListener(e -> onUserGuide());
-        menuBar.setHelpAboutListener(e -> onAbout());
     }
 
     /**
@@ -160,10 +130,8 @@ public class MainFrame extends JFrame {
      * GraphPanel 이벤트 리스너 설정
      */
     private void setupGraphPanelListeners() {
-        visualizationPanel.setZoomInListener(e -> onZoomIn());
-        visualizationPanel.setZoomOutListener(e -> onZoomOut());
-        visualizationPanel.setResetZoomListener(e -> onResetZoom());
-        visualizationPanel.setExportChartListener(e -> onExportChart());
+        // Zoom/Export listeners are internal to GraphPanel now or don't need MainFrame
+        // feedback.
 
         // 마커 기준 변경 또는 수동 재계산 시 결과 패널 업데이트
         visualizationPanel.setMarkerRefChangedListener(e -> {
@@ -181,37 +149,6 @@ public class MainFrame extends JFrame {
      */
     private void setupResultPanelListeners() {
         resultsPanel.setSaveButtonListener(e -> onSaveResultsClicked());
-    }
-
-    /**
-     * 툴바 생성
-     */
-    private JToolBar createToolBar() {
-        JToolBar toolBar = new JToolBar();
-        toolBar.setFloatable(false);
-        toolBar.setMargin(new Insets(5, 5, 5, 5));
-
-        // 툴바 버튼 추가
-        toolBar.add(createToolButton("New", "New Project", this::onNewProject));
-        toolBar.add(createToolButton("Open", "Open Project", this::onOpenProject));
-        toolBar.add(createToolButton("Save", "Save Project", this::onSaveProject));
-        toolBar.addSeparator();
-        toolBar.add(createToolButton("Export", "Export Data", this::onExportData));
-        toolBar.addSeparator();
-        toolBar.add(createToolButton("Settings", "Settings", this::onPreferences));
-
-        return toolBar;
-    }
-
-    /**
-     * 툴바 버튼 생성 헬퍼 메서드
-     */
-    private JButton createToolButton(String text, String tooltip, Runnable action) {
-        JButton button = new JButton(text);
-        button.setToolTipText(tooltip);
-        button.setPreferredSize(new Dimension(32, 32));
-        button.addActionListener(e -> action.run());
-        return button;
     }
 
     /**
@@ -253,11 +190,11 @@ public class MainFrame extends JFrame {
     private void setupLayout() {
         setLayout(new BorderLayout());
 
-        // MenuBar 설정
-        setJMenuBar(menuBar);
+        // MenuBar 설정 제거
+        // setJMenuBar(menuBar);
 
-        // ToolBar 추가 (NORTH)
-        add(toolBar, BorderLayout.NORTH);
+        // ToolBar 추가 (NORTH) 제거
+        // add(toolBar, BorderLayout.NORTH);
 
         // 메인 패널 구성
         // 의도: 기존 BorderLayout 고정 배치 대신, 사용자가 각 패널(입력, 그래프, 결과)의
@@ -320,92 +257,7 @@ public class MainFrame extends JFrame {
 
     // ========== Event Handlers ==========
 
-    private void onNewProject() {
-        currentExperimentId = -1;
-        resultsPanel.clearResults();
-        updateStatus("New project created");
-    }
-
-    private void onOpenProject() {
-        JFileChooser fileChooser = new JFileChooser();
-        int result = fileChooser.showOpenDialog(this);
-        if (result == JFileChooser.APPROVE_OPTION) {
-            updateStatus("File loaded: " + fileChooser.getSelectedFile().getName());
-        }
-    }
-
-    private void onSaveProject() {
-        updateStatus("Project saved");
-    }
-
-    private void onSaveAsProject() {
-        updateStatus("Project saved as...");
-    }
-
-    private void onExportData() {
-        updateStatus("Data exported");
-    }
-
-    private void onExit() {
-        System.exit(0);
-    }
-
-    private void onUndo() {
-        updateStatus("Undo");
-    }
-
-    private void onRedo() {
-        updateStatus("Redo");
-    }
-
-    private void onPreferences() {
-        updateStatus("Preferences");
-    }
-
-    private void onZoomIn() {
-        updateStatus("Zoom in");
-    }
-
-    private void onZoomOut() {
-        updateStatus("Zoom out");
-    }
-
-    private void onResetZoom() {
-        updateStatus("Reset zoom");
-    }
-
-    private void onToggleGrid() {
-        updateStatus("Toggle grid");
-    }
-
-    private void onToggleLegend() {
-        updateStatus("Toggle legend");
-    }
-
-    private void onCalculate() {
-        onCalculateClicked(null);
-    }
-
-    private void onClearData() {
-        updateStatus("Data cleared");
-    }
-
-    private void onDataValidator() {
-        updateStatus("Data validator");
-    }
-
-    private void onUserGuide() {
-        updateStatus("User guide");
-    }
-
-    private void onAbout() {
-        JOptionPane.showMessageDialog(this,
-                "MEVA - Materials Engineering Visualization and Analysis\n" +
-                        "Version 1.0\n" +
-                        "© 2025 MEVA Development Team",
-                "About MEVA",
-                JOptionPane.INFORMATION_MESSAGE);
-    }
+    // [Removed] Placeholder event handlers for MenuBar/ToolBar
 
     private void onCalculateClicked(java.awt.event.ActionEvent event) {
         // 버튼 클릭(또는 수동 실행)은 DB 저장을 원칙으로 함 (단, 재계산인 경우 로직 따름)
@@ -673,10 +525,6 @@ public class MainFrame extends JFrame {
         resultsPanel.clearResults();
         visualizationPanel.clearGraph();
         updateStatus("Input reset");
-    }
-
-    private void onExportChart() {
-        updateStatus("Chart exported");
     }
 
     /**

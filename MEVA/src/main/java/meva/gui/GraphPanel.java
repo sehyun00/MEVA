@@ -40,13 +40,20 @@ public class GraphPanel extends JPanel implements ChartInputHandler.InteractionL
     private JComboBox<String> yieldModeComboBox;
     private JComboBox<String> markerRefComboBox;
     private JCheckBox slopeLineCheckBox;
-    private JCheckBox elasticRegionCheckBox;
-    private JCheckBox plasticRegionCheckBox;
+    // private JCheckBox elasticRegionCheckBox; // [Removed] Redundant with
+    // Toughness Highlight
+    // private JCheckBox plasticRegionCheckBox; // [Removed] Redundant with
+    // Toughness Highlight
+    // private JCheckBox elasticRegionCheckBox; // [Removed] Redundant with
+    // Toughness Highlight
+    // private JCheckBox plasticRegionCheckBox; // [Removed] Redundant with
+    // Toughness Highlight
 
     // 신규 추가: 에너지 시각화 체크박스
     private JCheckBox resilienceCheckBox;
     private JCheckBox toughnessCheckBox;
-    private JComboBox<String> resilienceModeComboBox; // 신규 추가: 모드 선택
+    private JComboBox<String> resilienceModeComboBox;
+    private JCheckBox unloadingLineCheckBox; // [New] Unloading Line Toggle // 신규 추가: 모드 선택
 
     // 차트 제어 버튼들
     private JButton zoomInButton;
@@ -101,19 +108,19 @@ public class GraphPanel extends JPanel implements ChartInputHandler.InteractionL
         // [Row 1] 옵션 그룹
         JPanel row1 = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 5));
 
+        utsCheckBox.setToolTipText("극한 인장 강도(UTS) 지점을 표시합니다.");
         row1.add(utsCheckBox); // UTS
 
         JPanel yieldPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 0)); // Yield
+        yieldCheckBox.setToolTipText("<html><b>[항복점 모드]</b><br>실험 조건에 따라 자동 감지가 부정확할 수 있습니다. 필요 시 수동 변경하세요.</html>");
         yieldPanel.add(yieldCheckBox);
         yieldPanel.add(yieldModeComboBox);
-        yieldPanel.add(createHelpLabel("항복점 모드 안내",
-                "<b>[항복점 모드]</b><br>실험 조건에 따라 자동 감지가 부정확할 수 있습니다. 필요 시 수동 변경하세요."));
         row1.add(yieldPanel);
 
         JPanel slopePanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 0)); // Slope
+        slopeLineCheckBox
+                .setToolTipText("<html><b>[탄성 구간 조절]</b><br>파란색 점선 끝의 <b>네모 핸들</b>을 드래그하여 구간을 수동 설정하세요.</html>");
         slopePanel.add(slopeLineCheckBox);
-        slopePanel.add(createHelpLabel("탄성 구간 조절",
-                "<b>[탄성 구간 조절]</b><br>파란색 점선 끝의 <b>네모 핸들</b>을 드래그하여 구간을 수동 설정하세요."));
         row1.add(slopePanel);
 
         JPanel refPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 0)); // Marker Ref
@@ -131,16 +138,22 @@ public class GraphPanel extends JPanel implements ChartInputHandler.InteractionL
         JPanel resPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
         resPanel.add(resilienceCheckBox);
         resPanel.add(resilienceModeComboBox);
-        resPanel.add(createHelpLabel("탄성 에너지",
-                "<b>[탄성 에너지 (Resilience)]</b><br>재료가 영구 변형 없이 저장할 수 있는 에너지입니다.<br>" +
-                        "- <b>Triangle:</b> 훅의 법칙을 가정한 이론적 값 (삼각형)<br>" +
-                        "- <b>Integral:</b> 실제 실험 데이터를 적분한 값 (곡선 아래 면적)"));
+
+        resilienceCheckBox.setToolTipText("<html><b>[탄성 에너지 (Resilience)]</b><br>재료가 영구 변형 없이 저장할 수 있는 에너지입니다.<br>" +
+                "- <b>Triangle:</b> 훅의 법칙을 가정한 이론적 값 (삼각형)<br>" +
+                "- <b>Integral:</b> 실제 실험 데이터를 적분한 값 (곡선 아래 면적)</html>");
 
         row2Left.add(resPanel);
 
+        toughnessCheckBox.setToolTipText(
+                "<html><b>[영역 표시 (인성)]</b><br>그래프의 전체 면적을 탄성(초록)/소성(주황) 구간으로 나누어 시각화합니다.<br>(전체 면적 = 인성)</html>");
         row2Left.add(toughnessCheckBox);
-        row2Left.add(createHelpLabel("영역 표시 (인성)",
-                "<b>[영역 표시 (인성)]</b><br>그래프의 전체 면적을 탄성(초록)/소성(주황) 구간으로 나누어 시각화합니다.<br>(전체 면적 = 인성)"));
+
+        JPanel extraPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
+        unloadingLineCheckBox.setToolTipText(
+                "<html><b>[탄성 회복선 (Unloading Line)]</b><br>파단점에서 초기 영률(Elastic Slope)과 평행하게 그은 선입니다.<br>X축 교차점이 소성 연신율(Plastic Elongation)입니다.</html>");
+        extraPanel.add(unloadingLineCheckBox);
+        row2Left.add(extraPanel);
 
         JPanel row2Right = new JPanel(new FlowLayout(FlowLayout.RIGHT, 5, 5));
         row2Right.add(zoomInButton);
@@ -171,9 +184,11 @@ public class GraphPanel extends JPanel implements ChartInputHandler.InteractionL
     private void createUIComponents() {
         // 체크박스 및 콤보박스 생성 로직 (리스너 연결)
         utsCheckBox = new JCheckBox("UTS 표시");
+        utsCheckBox.setSelected(true); // [Default: True]
         utsCheckBox.addActionListener(e -> updateVisualization());
 
         yieldCheckBox = new JCheckBox("항복점 표시");
+        yieldCheckBox.setSelected(true); // [Default: True]
         yieldCheckBox.addActionListener(e -> {
             yieldModeComboBox.setEnabled(yieldCheckBox.isSelected());
             updateVisualization();
@@ -203,15 +218,13 @@ public class GraphPanel extends JPanel implements ChartInputHandler.InteractionL
             updateVisualization();
         });
 
-        elasticRegionCheckBox = new JCheckBox("탄성 영역");
-        elasticRegionCheckBox.addActionListener(e -> updateVisualization());
-
-        plasticRegionCheckBox = new JCheckBox("소성 영역");
-        plasticRegionCheckBox.addActionListener(e -> updateVisualization());
+        // [Removed] Elastic/Plastic checkboxes - redundant
+        // elasticRegionCheckBox ...
+        // plasticRegionCheckBox ...
 
         // 신규 체크박스 및 모드 선택 생성
         resilienceCheckBox = new JCheckBox("탄성 에너지");
-        resilienceCheckBox.setSelected(true);
+        resilienceCheckBox.setSelected(false); // [Default: False] "탄성 에너지 제외 모두 True" 요청 반영
         resilienceCheckBox.addActionListener(e -> {
             resilienceModeComboBox.setEnabled(resilienceCheckBox.isSelected());
             updateVisualization();
@@ -226,7 +239,12 @@ public class GraphPanel extends JPanel implements ChartInputHandler.InteractionL
         toughnessCheckBox.setSelected(true);
         toughnessCheckBox.addActionListener(e -> updateVisualization());
 
-        // 버튼 생성
+        toughnessCheckBox.setSelected(true);
+        toughnessCheckBox.addActionListener(e -> updateVisualization());
+
+        unloadingLineCheckBox = new JCheckBox("탄성 회복선");
+        unloadingLineCheckBox.setSelected(false);
+        unloadingLineCheckBox.addActionListener(e -> updateVisualization());
         zoomInButton = new JButton("확대");
         zoomInButton.addActionListener(e -> {
             chartManager.zoomIn();
@@ -345,13 +363,16 @@ public class GraphPanel extends JPanel implements ChartInputHandler.InteractionL
      * ChartManager에게 현재 체크박스 상태를 전달합니다.
      */
     private void updateVisualization() {
+        // [Fix] UI 동기화: 항복점 표시 체크박스와 모드 선택 콤보박스 상태 연동
+        yieldModeComboBox.setEnabled(yieldCheckBox.isSelected());
+
         // 기존 시각화 옵션
         chartManager.setVisualOptions(
                 utsCheckBox.isSelected(),
                 yieldCheckBox.isSelected(),
                 slopeLineCheckBox.isSelected(),
-                elasticRegionCheckBox.isSelected(),
-                plasticRegionCheckBox.isSelected(),
+                false, // elasticRegion (Disabled)
+                false, // plasticRegion (Disabled)
                 yieldModeComboBox.getSelectedIndex());
 
         // 신규 에너지 시각화 옵션 (모드 추가)
@@ -366,6 +387,10 @@ public class GraphPanel extends JPanel implements ChartInputHandler.InteractionL
             boolean isTrueMode = (markerRefComboBox.getSelectedIndex() == 1);
             int yieldMode = yieldModeComboBox.getSelectedIndex();
             resultPanel.updateMode(isTrueMode, useTriangle, yieldMode);
+            // Unloading Line Update
+            if (unloadingLineCheckBox != null) {
+                chartManager.setUnloadingLineVisible(unloadingLineCheckBox.isSelected());
+            }
         }
     }
 
@@ -460,25 +485,6 @@ public class GraphPanel extends JPanel implements ChartInputHandler.InteractionL
     }
 
     // --- Helper ---
-
-    private JLabel createHelpLabel(String title, String content) {
-        JLabel label = new JLabel("(?)");
-        label.setFont(new Font("SansSerif", Font.BOLD, 11));
-        label.setForeground(Color.GRAY);
-        label.setToolTipText("<html><div style='width:250px;'>" + content + "</div></html>");
-        label.addMouseListener(new MouseAdapter() {
-            public void mouseEntered(MouseEvent e) {
-                label.setForeground(new Color(33, 150, 243));
-                label.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-            }
-
-            public void mouseExited(MouseEvent e) {
-                label.setForeground(Color.GRAY);
-                label.setCursor(Cursor.getPredefinedCursor(Cursor.DEFAULT_CURSOR));
-            }
-        });
-        return label;
-    }
 
     // --- Setters ---
     public void setZoomInListener(ActionListener l) {

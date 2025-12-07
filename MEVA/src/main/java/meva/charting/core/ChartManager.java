@@ -60,6 +60,7 @@ public class ChartManager {
     private boolean showSlopeLine;
     private boolean showElasticRegion;
     private boolean showPlasticRegion;
+    private boolean showUnloadingLine; // [New]
 
     /**
      * 생성자
@@ -228,6 +229,12 @@ public class ChartManager {
             areaHighlightOverlay.setResilienceMode(useResilienceTriangle);
             chartPanel.repaint();
         }
+    }
+
+    public void setUnloadingLineVisible(boolean visible) {
+        this.showUnloadingLine = visible;
+        chartRenderer.setUnloadingLineVisible(visible);
+        refreshVisuals();
     }
 
     // ... (markers, zoom methods) ...
