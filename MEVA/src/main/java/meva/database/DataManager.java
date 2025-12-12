@@ -10,11 +10,9 @@ import java.util.Map;
 public class DataManager {
     
     private MaterialDatabase materialDB;
-    private StandardProperties standardProps;
     
     public DataManager() {
         this.materialDB = new MaterialDatabase();
-        this.standardProps = new StandardProperties();
     }
     
     /**
@@ -22,7 +20,6 @@ public class DataManager {
      */
     public void initializeDatabase() {
         materialDB.loadStandardMaterials();
-        standardProps.loadStandardProperties();
     }
     
     /**
