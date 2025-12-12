@@ -16,6 +16,11 @@ import java.io.IOException;
 import java.util.List;
 
 import meva.calculation.MaterialProperties;
+import meva.util.UserPreferences;
+import java.awt.event.WindowAdapter;
+import java.awt.event.WindowEvent;
+import java.awt.event.ComponentAdapter;
+import java.awt.event.ComponentEvent;
 
 /**
  * MEVA 애플리케이션의 메인 윈도우 프레임
@@ -47,6 +52,10 @@ public class MainFrame extends JFrame {
 
     private List<DataPoint> currentRawData; // [New] 원본 데이터 캐싱 (재계산용)
     private double loadCorrectionFactor = 1.0; // [New] 하중 단위 자동 보정 계수
+
+    // 분할 패널 참조 (위치 저장용)
+    private JSplitPane leftRightSplit;
+    private JSplitPane graphResultSplit;
 
     /**
      * MainFrame 생성자
@@ -234,26 +243,32 @@ public class MainFrame extends JFrame {
      */
     private JSplitPane createSplitPaneLayout() {
         // 1. 오른쪽 영역 분할 (Visualization vs Results)
-        // 의도: 시각화 그래프가 가장 중요한 정보이므로 여유 공간을 모두 그래프에 할당 (Weight 1.0)
-        // 결과 테이블은 preferredSize(최소값)를 유지
-        JSplitPane graphResultSplit = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT,
+        graphResultSplit = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT,
                 visualizationPanel, resultsPanel);
-        graphResultSplit.setResizeWeight(1.0); // 그래프 패널이 남는 공간을 모두 차지
-        graphResultSplit.setOneTouchExpandable(true); // 원터치 접기/펴기 기능 활성화
+        graphResultSplit.setResizeWeight(1.0);
+        graphResultSplit.setOneTouchExpandable(true);
 
-        // 2. 오른쪽 패널 컨테이너 (JSplitPane 래퍼)
-        // 의도: 중첩된 구조를 안정적으로 배치하기 위해 JPanel로 감쌈
+        // 2. 오른쪽 패널 컨테이너
         JPanel rightPanel = new JPanel(new BorderLayout());
         rightPanel.add(graphResultSplit, BorderLayout.CENTER);
 
         // 3. 전체 영역 분할 (Input vs RightPanel)
-        // 의도: 입력 패널은 최소 너비(preferredSize) 유지, 나머지 공간은 오른쪽(그래프+결과)에 할당 (Weight 0.0)
-        // rightPanel 내부에서 다시 그래프가 공간을 가져감 -> 최종적으로 그래프가 최대화됨
-        JSplitPane leftRightSplit = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT,
+        leftRightSplit = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT,
                 inputPanel, rightPanel);
-        leftRightSplit.setResizeWeight(0.0); // 입력 패널은 고정, 오른쪽 패널 확장
+        leftRightSplit.setResizeWeight(0.0);
         leftRightSplit.setOneTouchExpandable(true);
-        leftRightSplit.setDividerLocation(360); // [New] 초기 너비 확보 (350 + 여유)
+
+        // 저장된 분할 위치 복원
+        int savedLeftRight = UserPreferences.getSplitLeftRight(360);
+        leftRightSplit.setDividerLocation(savedLeftRight);
+
+        // 분할 위치 변경 시 저장
+        leftRightSplit.addPropertyChangeListener(JSplitPane.DIVIDER_LOCATION_PROPERTY, e -> {
+            UserPreferences.setSplitLeftRight(leftRightSplit.getDividerLocation());
+        });
+        graphResultSplit.addPropertyChangeListener(JSplitPane.DIVIDER_LOCATION_PROPERTY, e -> {
+            UserPreferences.setSplitGraphResult(graphResultSplit.getDividerLocation());
+        });
 
         return leftRightSplit;
     }
@@ -264,14 +279,92 @@ public class MainFrame extends JFrame {
     private void setupFrame() {
         setTitle("MEVA - Materials Engineering Visualization and Analysis");
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        setSize(1600, 900);
 
-        // 최소 크기 설정 (각 패널의 최소 너비 합계 고려)
-        // Input(280) + Graph(800) + Result(300) + Dividers/Borders ≈ 1400
-        // 의도: 사용자가 설정한 각 패널의 최소 너비를 보장하기 위해 프레임 전체의 최소 크기를 제한함
+        // 저장된 윈도우 크기/위치 복원
+        int width = UserPreferences.getWindowWidth(1600);
+        int height = UserPreferences.getWindowHeight(900);
+        setSize(width, height);
+
+        // 최소 크기 설정
         setMinimumSize(new Dimension(1400, 768));
 
-        setLocationRelativeTo(null);
+        // 저장된 위치 복원 또는 화면 중앙
+        int x = UserPreferences.getWindowX(-1);
+        int y = UserPreferences.getWindowY(-1);
+        if (x >= 0 && y >= 0) {
+            setLocation(x, y);
+        } else {
+            setLocationRelativeTo(null);
+        }
+
+        // 최대화 상태 복원
+        if (UserPreferences.isWindowMaximized()) {
+            setExtendedState(JFrame.MAXIMIZED_BOTH);
+        }
+
+        // 타이틀 바 아이콘 설정
+        try {
+            String[] possiblePaths = {
+                    "resources/meva_icon.png",
+                    "MEVA/resources/meva_icon.png",
+                    "../resources/meva_icon.png"
+            };
+            for (String path : possiblePaths) {
+                java.io.File iconFile = new java.io.File(path);
+                if (iconFile.exists()) {
+                    Image icon = javax.imageio.ImageIO.read(iconFile);
+                    setIconImage(icon);
+                    break;
+                }
+            }
+        } catch (Exception e) {
+            System.err.println("아이콘 로드 실패: " + e.getMessage());
+        }
+
+        // 윈도우 닫기 시 위치/크기 저장
+        addWindowListener(new WindowAdapter() {
+            @Override
+            public void windowClosing(WindowEvent e) {
+                saveWindowState();
+            }
+        });
+
+        // 윈도우 크기 변경 시 저장 (지연 저장으로 성능 최적화)
+        addComponentListener(new ComponentAdapter() {
+            private javax.swing.Timer saveTimer = null;
+
+            @Override
+            public void componentResized(ComponentEvent e) {
+                if (saveTimer != null)
+                    saveTimer.stop();
+                saveTimer = new javax.swing.Timer(500, evt -> saveWindowState());
+                saveTimer.setRepeats(false);
+                saveTimer.start();
+            }
+
+            @Override
+            public void componentMoved(ComponentEvent e) {
+                if (saveTimer != null)
+                    saveTimer.stop();
+                saveTimer = new javax.swing.Timer(500, evt -> saveWindowState());
+                saveTimer.setRepeats(false);
+                saveTimer.start();
+            }
+        });
+    }
+
+    private void saveWindowState() {
+        boolean maximized = (getExtendedState() & JFrame.MAXIMIZED_BOTH) == JFrame.MAXIMIZED_BOTH;
+        if (!maximized) {
+            UserPreferences.saveWindowBounds(getX(), getY(), getWidth(), getHeight(), false);
+        } else {
+            UserPreferences.saveWindowBounds(
+                    UserPreferences.getWindowX(100),
+                    UserPreferences.getWindowY(100),
+                    UserPreferences.getWindowWidth(1600),
+                    UserPreferences.getWindowHeight(900),
+                    true);
+        }
     }
 
     // ========== Event Handlers ==========

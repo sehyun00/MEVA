@@ -254,11 +254,13 @@ public class NewExperimentPanel extends JPanel {
         gbc.anchor = GridBagConstraints.CENTER;
         loadFileButton = new JButton("파일 선택...");
         loadFileButton.addActionListener(e -> {
-            JFileChooser fileChooser = new JFileChooser();
+            JFileChooser fileChooser = new JFileChooser(meva.util.UserPreferences.getLastFilePath());
             fileChooser.setFileFilter(new javax.swing.filechooser.FileNameExtensionFilter("Text Files (*.txt)", "txt"));
             int result = fileChooser.showOpenDialog(this);
             if (result == JFileChooser.APPROVE_OPTION) {
-                setSelectedFile(fileChooser.getSelectedFile());
+                File selectedFile = fileChooser.getSelectedFile();
+                meva.util.UserPreferences.setLastFilePath(selectedFile.getAbsolutePath());
+                setSelectedFile(selectedFile);
             }
         });
         panel.add(loadFileButton, gbc);

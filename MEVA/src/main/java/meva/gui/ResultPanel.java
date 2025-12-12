@@ -28,7 +28,7 @@ public class ResultPanel extends JPanel {
     private DefaultTableModel tableModel; // 테이블의 데이터 모델 (행/열 관리)
     private JScrollPane scrollPane; // 테이블에 스크롤 기능을 제공하는 컨테이너
     private JButton saveButton; // 결과를 CSV 파일로 저장하는 버튼
-    private JButton referenceButton; // [New] 참고 자료 링크 버튼
+    private JButton referenceButton; // [New] 공식 문서 링크 버튼
     private JCheckBox unitToggle; // [New] 에너지 단위 변환 토글 (MJ/m³ <-> J/mm³)
     private JLabel titleLabel; // 패널 제목 레이블 (동적 변경용)
 
@@ -164,8 +164,8 @@ public class ResultPanel extends JPanel {
             }
         });
 
-        // [New] 참고 자료 버튼 생성
-        referenceButton = new JButton("📚 참고 자료");
+        // [New] 공식 문서 버튼 생성
+        referenceButton = new JButton("📚 공식 문서");
         referenceButton.setToolTipText("재료 역학 참고 문서 (Engineering ToolBox)");
         referenceButton.setFont(new Font("Dialog", Font.PLAIN, 12));
         referenceButton.setFocusPainted(false);
@@ -218,7 +218,7 @@ public class ResultPanel extends JPanel {
 
         // 버튼 패널 (하단)
         JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 5));
-        buttonPanel.add(referenceButton); // 참고 자료 버튼 (왼쪽)
+        buttonPanel.add(referenceButton); // 공식 문서 버튼 (왼쪽)
         buttonPanel.add(saveButton); // 내보내기 버튼 (오른쪽)
 
         // [New] 면책사항 레이블
@@ -257,7 +257,7 @@ public class ResultPanel extends JPanel {
         }
 
         // 파일 선택 다이얼로그
-        JFileChooser fileChooser = new JFileChooser();
+        JFileChooser fileChooser = new JFileChooser(meva.util.UserPreferences.getLastExportPath());
         fileChooser.setDialogTitle("결과 저장");
 
         // 기본 파일명 설정
@@ -350,6 +350,9 @@ public class ResultPanel extends JPanel {
                 writer.write("===== DISCLAIMER =====\n");
                 writer.write("본 계산 결과는 참고용이며, 공인 시험 성적서를 대체하지 않습니다.\n");
                 writer.write("중요한 의사결정에는 반드시 공식 문서와 비교 검증하시기 바랍니다.\n");
+
+                // 경로 저장
+                meva.util.UserPreferences.setLastExportPath(fileToSave.getAbsolutePath());
 
                 JOptionPane.showMessageDialog(this,
                         "결과가 성공적으로 저장되었습니다:\n" + fileToSave.getAbsolutePath(),
@@ -628,7 +631,7 @@ public class ResultPanel extends JPanel {
     }
 
     /**
-     * 참고 자료 웹 링크를 기본 브라우저에서 엽니다.
+     * 공식 문서 웹 링크를 기본 브라우저에서 엽니다.
      */
     private void openReferenceLink() {
         String url = "https://www.matweb.com/index.aspx";
