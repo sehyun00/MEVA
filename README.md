@@ -19,21 +19,25 @@
 ## ✨ 주요 기능
 
 ### 1. 응력-변형률 곡선 자동 생성
+
 - 하중-변위 데이터 파일 로드 (TXT 형식, 드래그앤드롭 지원)
 - 시편 치수 입력 → 응력-변형률 변환 및 그래프 생성
 - 그래프 확대/축소, 그리드/범례 표시 옵션
 
 ### 2. 물성값 자동 계산
+
 - 인장강도 (UTS), 항복강도 (0.2% Offset), 탄성계수 (E)
 - 연신율, 단면 감소율, 인성, 레질리언스 등
 - 각 물성값 클릭 시 계산 과정(수식) 확인 가능
 
 ### 3. 실험 데이터 관리
+
 - SQLite 데이터베이스에 실험 기록 저장
 - 이전 실험 검색, 정렬, 로드 기능
 - 실험 데이터 삭제 기능
 
 ### 4. 결과 내보내기
+
 - **CSV**: 물성값 + 시편 정보 포함
 - **Excel**: Apache POI 기반 .xlsx 파일 생성
 - **이미지**: PNG 형식 그래프 저장
@@ -43,32 +47,62 @@
 ## 🚀 빠른 시작
 
 ### 요구 사항
+
 - Java 11 이상
-- Gradle (빌드용)
+- Maven 3.6 이상 ([설치 방법](https://maven.apache.org/install.html))
 
 ### 설치 및 실행
+
 ```bash
 # 저장소 클론
 git clone https://github.com/sehyun00/MEVA.git
 cd MEVA
 
-# Gradle로 빌드 및 실행
-./gradlew run
+# 의존성 다운로드 + 컴파일 + 실행 (한 번에)
+mvn clean compile exec:java -Dexec.mainClass="meva.Main"
+```
+
+**단계별 실행:**
+
+```bash
+# 1. 의존성 다운로드 및 컴파일
+mvn clean compile
+
+# 2. 실행
+mvn exec:java -Dexec.mainClass="meva.Main"
+```
+
+**요약**
+
+```bash
+cd MEVA
+mvn clean compile exec:java -Dexec.mainClass="meva.Main"
 ```
 
 ### 샘플 데이터로 테스트
+
 `MEVA/samples/` 폴더에 샘플 데이터가 포함되어 있습니다:
 
-| 파일명 | 재료 | 설명 |
+| 파일명 | 재료 | 용도 |
 |:---|:---|:---|
-| `S45C.txt` | S45C 강철 | 탄소강 인장시험 데이터 |
-| `Ti6Al4V.txt` | Ti-6Al-4V | 티타늄 합금 인장시험 데이터 |
+| `S45C.txt` | S45C 강철 | 탄소강 인장시험 로드-변위 데이터 (그래프 렌더링용) |
+| `S45C_report.png` | S45C 강철 | 시편 정보 및 실험 조건 (입력 패널 참고용) |
+| `S45C.jpg` | S45C 강철 | 시편 이미지 (참고용) |
+| `Ti6Al4V.txt` | Ti-6Al-4V | 티타늄 합금 인장시험 로드-변위 데이터 (그래프 렌더링용) |
+| `Ti6Al4V_report.png` | Ti-6Al-4V | 시편 정보 및 실험 조건 (입력 패널 참고용) |
+| `Ti6Al4V.jpg` | Ti-6Al-4V | 시편 이미지 (참고용) |
 
 **테스트 방법:**
-1. 프로그램 실행
-2. 시편 정보 입력 (직경, 게이지 길이, 최종 단면적, 인장 속도)(sample/재료_report.png의 정보 참고)
-3. "파일 선택" 또는 드래그앤드롭으로 샘플 TXT 파일 로드
-4. "계산" 버튼 클릭 → 그래프 및 물성값 확인
+
+1. **프로그램 실행**: `mvn exec:java -Dexec.mainClass="meva.Main"` 명령으로 MEVA 프로그램 시작
+2. **실험 조건 확인**: `samples/` 폴더의 `*_report.png` 이미지를 열어 시편 정보 확인
+   - 직경 (Diameter)
+   - 게이지 길이 (Gauge Length)
+   - 최종 단면적 (Final Cross-sectional Area)  
+   - 인장 속도 (Test Speed)
+3. **시편 정보 입력**: 프로그램의 **입력 패널**에 위 정보를 입력
+4. **데이터 파일 로드**: `*.txt` 파일을 "파일 선택" 버튼으로 선택하거나 **드래그앤드롭**으로 로드
+5. **계산 실행**: "계산" 버튼 클릭 → 응력-변형률 그래프 및 물성값 자동 계산
 
 ---
 
@@ -82,6 +116,7 @@ cd MEVA
 | 팀원 | 이태윤 | 컴퓨터공학부 | 2 | 2024243028 |
 
 ### 역할 분담
+
 - **김세현**: 프로젝트 총괄, 알고리즘 설계
 - **김종현**: 알고리즘 구현, GUI 설계, 그래프 시각화
 - **이태윤**: 데이터베이스 설계, 파일 입출력 구현
@@ -98,7 +133,7 @@ cd MEVA
 | **그래프** | JFreeChart |
 | **데이터베이스** | SQLite + JDBC |
 | **파일 처리** | Apache POI (Excel), Java I/O (CSV) |
-| **빌드** | Gradle |
+| **빌드** | Maven |
 | **버전 관리** | Git, GitHub |
 
 ---
@@ -118,9 +153,13 @@ MEVA/
 │   ├── database/              # DB 연동
 │   └── util/                  # 유틸리티
 ├── samples/                   # 샘플 데이터
-│   ├── S45C.txt
-│   └── Ti6Al4V.txt
-└── build.gradle
+│   ├── S45C.txt               # S45C 인장시험 데이터
+│   ├── S45C_report.png        # S45C 시편 정보 이미지
+│   ├── S45C.jpg               # S45C 시편 이미지
+│   ├── Ti6Al4V.txt            # Ti-6Al-4V 인장시험 데이터
+│   ├── Ti6Al4V_report.png     # Ti-6Al-4V 시편 정보 이미지
+│   └── Ti6Al4V.jpg            # Ti-6Al-4V 시편 이미지
+└── pom.xml                    # Maven 설정 (의존성 관리)
 ```
 
 ---
@@ -145,8 +184,7 @@ MIT License - 자유롭게 사용, 수정, 배포 가능
 
 ## 🔗 관련 링크
 
-- [GitHub Repository](https://github.com/sehyun00/MEVA)
-- [데모 영상 (YouTube)](https://www.youtube.com/watch?v=L9Rl4PcHkw)
+- [데모 영상 (YouTube)](https://youtu.be/ZzR_9zocHPo)
 
 ---
 
