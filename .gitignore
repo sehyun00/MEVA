@@ -1,0 +1,17 @@
+# Database
+meva.db
+*.db
+*.sqlite
+
+# IDE
+.idea/
+*.iml
+*.ipr
+*.iws
+.classpath
+.project
+.settings/
+
+# OS
+.DS_Store
+Thumbs.db

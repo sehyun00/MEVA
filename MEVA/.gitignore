@@ -29,6 +29,16 @@ buildNumber.properties
 
 # Compiled class files
 *.class
+bin/
 
 # Log files
 *.log
+
+# Build output and temp files
+compile_output.txt
+output.txt
+output_all.txt
+
+# Local scripts (optional - remove if you want to keep these)
+build.bat
+run.bat

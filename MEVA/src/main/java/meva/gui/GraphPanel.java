@@ -129,6 +129,11 @@ public class GraphPanel extends JPanel implements ChartInputHandler.InteractionL
         refPanel.add(markerRefComboBox);
         row1.add(refPanel);
 
+        // [New] 용어 설명 버튼 (마커 기준 옆에 배치)
+        JButton tipsButton = new JButton("용어 설명");
+        tipsButton.addActionListener(e -> showTipsDialog());
+        row1.add(tipsButton);
+
         // [Row 2] 영역 표시 및 줌 버튼
         JPanel row2 = new JPanel(new BorderLayout());
         JPanel row2Left = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 5));
@@ -161,12 +166,7 @@ public class GraphPanel extends JPanel implements ChartInputHandler.InteractionL
         row2Right.add(zoomOutButton);
         row2Right.add(resetZoomButton);
 
-        // [New] 용어 설명 버튼
-        JButton tipsButton = new JButton("용어 설명");
-        tipsButton.addActionListener(e -> showTipsDialog());
-        row2Right.add(tipsButton);
-
-        row2Right.add(Box.createHorizontalStrut(10));
+        row2Right.add(Box.createHorizontalStrut(20)); // 줌 버튼과 구분
         row2Right.add(exportChartButton);
 
         row2.add(row2Left, BorderLayout.WEST);

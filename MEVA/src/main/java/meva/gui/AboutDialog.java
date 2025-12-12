@@ -28,8 +28,29 @@ public class AboutDialog extends JDialog {
 
     public AboutDialog(Frame parent) {
         super(parent, "프로그램 정보", true);
+        setDialogIcon();
         initComponents();
         setLocationRelativeTo(parent);
+    }
+
+    private void setDialogIcon() {
+        try {
+            String[] possiblePaths = {
+                    "resources/meva_icon.png",
+                    "MEVA/resources/meva_icon.png",
+                    "../resources/meva_icon.png"
+            };
+            for (String path : possiblePaths) {
+                File iconFile = new File(path);
+                if (iconFile.exists()) {
+                    Image icon = ImageIO.read(iconFile);
+                    setIconImage(icon);
+                    break;
+                }
+            }
+        } catch (Exception e) {
+            // 아이콘 로드 실패 시 기본 아이콘 사용
+        }
     }
 
     private void initComponents() {

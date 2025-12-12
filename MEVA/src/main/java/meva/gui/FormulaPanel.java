@@ -56,19 +56,36 @@ public class FormulaPanel extends JPanel {
         setBorder(BorderFactory.createTitledBorder("📐 계산 과정 (Calculation Process)"));
         setBackground(Color.WHITE);
 
-        contentPanel = new JPanel();
+        // Scrollable 구현 패널 - 뷰포트 너비에 맞게 자동 조정
+        contentPanel = new JPanel() {
+            @Override
+            public Dimension getPreferredSize() {
+                // 부모 뷰포트가 있으면 그 너비에 맞춤
+                Container parent = getParent();
+                if (parent instanceof JViewport) {
+                    int parentWidth = parent.getWidth();
+                    if (parentWidth > 0) {
+                        Dimension pref = super.getPreferredSize();
+                        return new Dimension(parentWidth - 20, pref.height);
+                    }
+                }
+                return super.getPreferredSize();
+            }
+        };
         contentPanel.setLayout(new BoxLayout(contentPanel, BoxLayout.Y_AXIS));
         contentPanel.setBackground(Color.WHITE);
         contentPanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
 
         // 중앙 정렬을 위한 래퍼 패널들
-        JPanel pnlSymbolic = new JPanel(new FlowLayout(FlowLayout.CENTER));
+        JPanel pnlSymbolic = new JPanel(new BorderLayout());
         pnlSymbolic.setBackground(Color.WHITE);
-        pnlSymbolic.add(lblSymbolic);
+        lblSymbolic.setHorizontalAlignment(SwingConstants.CENTER);
+        pnlSymbolic.add(lblSymbolic, BorderLayout.CENTER);
 
-        JPanel pnlSubstituted = new JPanel(new FlowLayout(FlowLayout.CENTER));
+        JPanel pnlSubstituted = new JPanel(new BorderLayout());
         pnlSubstituted.setBackground(Color.WHITE);
-        pnlSubstituted.add(lblSubstituted);
+        lblSubstituted.setHorizontalAlignment(SwingConstants.CENTER);
+        pnlSubstituted.add(lblSubstituted, BorderLayout.CENTER);
 
         contentPanel.add(pnlSymbolic);
         contentPanel.add(Box.createVerticalStrut(8));
@@ -78,22 +95,18 @@ public class FormulaPanel extends JPanel {
         contentPanel.add(Box.createVerticalStrut(10));
         contentPanel.add(txtLegend);
 
-        // [버그수정] ScrollPane으로 감싸서 리사이징 시 내용이 잘리지 않도록 함
+        // ScrollPane에 리사이즈 리스너 추가
         JScrollPane scrollPane = new JScrollPane(contentPanel);
         scrollPane.setBorder(null);
         scrollPane.getVerticalScrollBar().setUnitIncrement(16);
-        add(scrollPane, BorderLayout.CENTER);
-    }
+        scrollPane.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
 
-    /**
-     * 부모 컨테이너 리사이징 시 레이아웃 갱신
-     */
-    @Override
-    public void invalidate() {
-        super.invalidate();
-        if (contentPanel != null) {
+        // 뷰포트 크기 변경 시 contentPanel 재배치
+        scrollPane.getViewport().addChangeListener(e -> {
             contentPanel.revalidate();
-        }
+        });
+
+        add(scrollPane, BorderLayout.CENTER);
     }
 
     // ========== 옵션 설정 메서드 (ResultPanel에서 호출) ==========

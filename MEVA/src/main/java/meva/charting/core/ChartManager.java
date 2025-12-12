@@ -426,7 +426,7 @@ public class ChartManager {
         if (chartPanel == null)
             return;
 
-        JFileChooser fileChooser = new JFileChooser();
+        JFileChooser fileChooser = new JFileChooser(meva.util.UserPreferences.getLastExportPath());
         fileChooser.setDialogTitle("차트 이미지 저장");
 
         // 기본 파일명 설정
@@ -462,6 +462,9 @@ public class ChartManager {
                 g2.dispose();
 
                 javax.imageio.ImageIO.write(image, "png", file);
+
+                // 경로 저장
+                meva.util.UserPreferences.setLastExportPath(file.getAbsolutePath());
 
                 JOptionPane.showMessageDialog(chartPanel,
                         "이미지가 성공적으로 저장되었습니다:\n" + file.getAbsolutePath(),
