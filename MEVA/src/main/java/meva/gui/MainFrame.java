@@ -175,10 +175,24 @@ public class MainFrame extends JFrame {
         progressBar.setVisible(false);
         panel.add(progressBar, BorderLayout.CENTER);
 
-        // 시간 레이블 (EAST)
+        // 오른쪽 패널 (시간 + 프로그램 정보 버튼)
+        JPanel rightPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 5, 0));
+        rightPanel.setOpaque(false);
+
+        // 시간 레이블
         timeLabel = new JLabel(java.time.LocalTime.now().toString());
         timeLabel.setFont(new Font("Dialog", Font.PLAIN, 11));
-        panel.add(timeLabel, BorderLayout.EAST);
+        rightPanel.add(timeLabel);
+
+        // 프로그램 정보 버튼
+        JButton aboutButton = new JButton("ℹ 프로그램 정보");
+        aboutButton.setFont(new Font("Dialog", Font.PLAIN, 10));
+        aboutButton.setMargin(new Insets(1, 5, 1, 5));
+        aboutButton.setFocusPainted(false);
+        aboutButton.addActionListener(e -> AboutDialog.showDialog(this));
+        rightPanel.add(aboutButton);
+
+        panel.add(rightPanel, BorderLayout.EAST);
 
         // 시간 업데이트 타이머
         Timer timer = new Timer(1000, e -> timeLabel.setText(java.time.LocalTime.now().format(
