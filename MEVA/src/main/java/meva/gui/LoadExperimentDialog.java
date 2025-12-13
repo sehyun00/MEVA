@@ -33,18 +33,32 @@ public class LoadExperimentDialog extends JDialog {
 
     private void setDialogIcon() {
         try {
-            String[] possiblePaths = {
-                    "resources/meva_icon.png",
-                    "MEVA/resources/meva_icon.png",
-                    "../resources/meva_icon.png"
-            };
-            for (String path : possiblePaths) {
-                java.io.File iconFile = new java.io.File(path);
-                if (iconFile.exists()) {
-                    java.awt.Image icon = javax.imageio.ImageIO.read(iconFile);
-                    setIconImage(icon);
+            java.awt.Image icon = null;
+
+            // 1. 클래스패스에서 로드 시도 (JAR 실행 시)
+            String[] classpathPaths = { "/meva_icon.png", "meva_icon.png" };
+            for (String path : classpathPaths) {
+                java.net.URL url = getClass().getResource(path);
+                if (url != null) {
+                    icon = javax.imageio.ImageIO.read(url);
                     break;
                 }
+            }
+
+            // 2. 파일 시스템에서 로드 시도 (IDE 실행 시)
+            if (icon == null) {
+                String[] filePaths = { "resources/meva_icon.png", "MEVA/resources/meva_icon.png" };
+                for (String path : filePaths) {
+                    java.io.File iconFile = new java.io.File(path);
+                    if (iconFile.exists()) {
+                        icon = javax.imageio.ImageIO.read(iconFile);
+                        break;
+                    }
+                }
+            }
+
+            if (icon != null) {
+                setIconImage(icon);
             }
         } catch (Exception e) {
             // 아이콘 로드 실패 시 기본 아이콘 사용

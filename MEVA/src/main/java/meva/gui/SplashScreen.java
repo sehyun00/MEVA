@@ -53,19 +53,42 @@ public class SplashScreen extends JWindow {
         JLabel iconLabel = new JLabel();
         iconLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
         try {
-            String[] possiblePaths = {
-                    "resources/meva_icon.png",
-                    "MEVA/resources/meva_icon.png",
-                    "../resources/meva_icon.png"
+            // JAR 내부 리소스 로딩 (클래스패스)
+            String[] classpathPaths = {
+                    "/meva_icon.png",
+                    "meva_icon.png"
             };
-            for (String path : possiblePaths) {
-                File iconFile = new File(path);
-                if (iconFile.exists()) {
-                    Image icon = ImageIO.read(iconFile);
-                    Image scaledIcon = icon.getScaledInstance(100, 100, Image.SCALE_SMOOTH);
-                    iconLabel.setIcon(new ImageIcon(scaledIcon));
+            Image icon = null;
+
+            // 1. 클래스패스에서 로드 시도
+            for (String path : classpathPaths) {
+                java.net.URL url = getClass().getResource(path);
+                if (url != null) {
+                    icon = ImageIO.read(url);
                     break;
                 }
+            }
+
+            // 2. 파일 시스템에서 로드 시도 (IDE 실행 시)
+            if (icon == null) {
+                String[] filePaths = {
+                        "resources/meva_icon.png",
+                        "MEVA/resources/meva_icon.png"
+                };
+                for (String path : filePaths) {
+                    File iconFile = new File(path);
+                    if (iconFile.exists()) {
+                        icon = ImageIO.read(iconFile);
+                        break;
+                    }
+                }
+            }
+
+            if (icon != null) {
+                Image scaledIcon = icon.getScaledInstance(100, 100, Image.SCALE_SMOOTH);
+                iconLabel.setIcon(new ImageIcon(scaledIcon));
+            } else {
+                throw new Exception("Icon not found");
             }
         } catch (Exception e) {
             iconLabel.setText("🔬");

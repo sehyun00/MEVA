@@ -35,18 +35,32 @@ public class AboutDialog extends JDialog {
 
     private void setDialogIcon() {
         try {
-            String[] possiblePaths = {
-                    "resources/meva_icon.png",
-                    "MEVA/resources/meva_icon.png",
-                    "../resources/meva_icon.png"
-            };
-            for (String path : possiblePaths) {
-                File iconFile = new File(path);
-                if (iconFile.exists()) {
-                    Image icon = ImageIO.read(iconFile);
-                    setIconImage(icon);
+            Image icon = null;
+
+            // 1. 클래스패스에서 로드 시도
+            String[] classpathPaths = { "/meva_icon.png", "meva_icon.png" };
+            for (String path : classpathPaths) {
+                java.net.URL url = getClass().getResource(path);
+                if (url != null) {
+                    icon = ImageIO.read(url);
                     break;
                 }
+            }
+
+            // 2. 파일 시스템에서 로드 시도
+            if (icon == null) {
+                String[] filePaths = { "resources/meva_icon.png", "MEVA/resources/meva_icon.png" };
+                for (String path : filePaths) {
+                    File iconFile = new File(path);
+                    if (iconFile.exists()) {
+                        icon = ImageIO.read(iconFile);
+                        break;
+                    }
+                }
+            }
+
+            if (icon != null) {
+                setIconImage(icon);
             }
         } catch (Exception e) {
             // 아이콘 로드 실패 시 기본 아이콘 사용
@@ -70,28 +84,34 @@ public class AboutDialog extends JDialog {
         JLabel iconLabel = new JLabel();
         iconLabel.setHorizontalAlignment(SwingConstants.CENTER);
         try {
-            // 여러 경로에서 아이콘 찾기
-            String[] possiblePaths = {
-                    "resources/meva_icon.png",
-                    "MEVA/resources/meva_icon.png",
-                    "../resources/meva_icon.png"
-            };
-
             Image icon = null;
-            for (String path : possiblePaths) {
-                File iconFile = new File(path);
-                if (iconFile.exists()) {
-                    icon = ImageIO.read(iconFile);
+
+            // 1. 클래스패스에서 로드 시도
+            String[] classpathPaths = { "/meva_icon.png", "meva_icon.png" };
+            for (String path : classpathPaths) {
+                java.net.URL url = getClass().getResource(path);
+                if (url != null) {
+                    icon = ImageIO.read(url);
                     break;
                 }
             }
 
+            // 2. 파일 시스템에서 로드 시도
+            if (icon == null) {
+                String[] filePaths = { "resources/meva_icon.png", "MEVA/resources/meva_icon.png" };
+                for (String path : filePaths) {
+                    File iconFile = new File(path);
+                    if (iconFile.exists()) {
+                        icon = ImageIO.read(iconFile);
+                        break;
+                    }
+                }
+            }
+
             if (icon != null) {
-                // 아이콘 크기 조정 (100x100)
                 Image scaledIcon = icon.getScaledInstance(100, 100, Image.SCALE_SMOOTH);
                 iconLabel.setIcon(new ImageIcon(scaledIcon));
             } else {
-                // 아이콘을 찾을 수 없는 경우 텍스트 대체
                 iconLabel.setText("🔬");
                 iconLabel.setFont(new Font("Dialog", Font.PLAIN, 48));
             }

@@ -57,6 +57,16 @@
     </dependencies>
 
     <build>
+        <!-- 리소스 폴더 설정 -->
+        <resources>
+            <resource>
+                <directory>resources</directory>
+            </resource>
+            <resource>
+                <directory>src/main/resources</directory>
+            </resource>
+        </resources>
+
         <plugins>
             <!-- 컴파일러 설정 -->
             <plugin>
@@ -70,15 +80,87 @@
                 </configuration>
             </plugin>
 
-            <!-- 실행 플러그인: 여기서 mainClass 설정 -->
+            <!-- 실행 플러그인 -->
             <plugin>
                 <groupId>org.codehaus.mojo</groupId>
                 <artifactId>exec-maven-plugin</artifactId>
                 <version>3.1.0</version>
                 <configuration>
-                    <!-- 실제 메인 클래스 경로로 변경 필요 -->
                     <mainClass>meva.Main</mainClass>
                 </configuration>
+            </plugin>
+
+            <!-- Shade Plugin: 모든 의존성 포함 실행 가능 JAR 생성 -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-shade-plugin</artifactId>
+                <version>3.5.1</version>
+                <executions>
+                    <execution>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>shade</goal>
+                        </goals>
+                        <configuration>
+                            <transformers>
+                                <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
+                                    <mainClass>meva.Main</mainClass>
+                                </transformer>
+                            </transformers>
+                            <filters>
+                                <filter>
+                                    <artifact>*:*</artifact>
+                                    <excludes>
+                                        <exclude>META-INF/*.SF</exclude>
+                                        <exclude>META-INF/*.DSA</exclude>
+                                        <exclude>META-INF/*.RSA</exclude>
+                                    </excludes>
+                                </filter>
+                            </filters>
+                            <createDependencyReducedPom>false</createDependencyReducedPom>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <!-- Launch4j Plugin: Windows .exe 실행 파일 생성 -->
+            <plugin>
+                <groupId>com.akathist.maven.plugins.launch4j</groupId>
+                <artifactId>launch4j-maven-plugin</artifactId>
+                <version>2.5.0</version>
+                <executions>
+                    <execution>
+                        <id>l4j-clui</id>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>launch4j</goal>
+                        </goals>
+                        <configuration>
+                            <headerType>gui</headerType>
+                            <outfile>${project.build.directory}/MEVA.exe</outfile>
+                            <jar>${project.build.directory}/${project.artifactId}-${project.version}.jar</jar>
+                            <errTitle>MEVA Error</errTitle>
+                            <icon>resources/meva_icon.ico</icon>
+                            <classPath>
+                                <mainClass>meva.Main</mainClass>
+                            </classPath>
+                            <jre>
+                                <path>%JAVA_HOME%</path>
+                                <minVersion>17</minVersion>
+                            </jre>
+                            <versionInfo>
+                                <fileVersion>1.0.0.0</fileVersion>
+                                <txtFileVersion>1.0.0</txtFileVersion>
+                                <fileDescription>MEVA - Materials Engineering Visualization and Analysis</fileDescription>
+                                <copyright>2025 MEVA Team</copyright>
+                                <productVersion>1.0.0.0</productVersion>
+                                <txtProductVersion>1.0.0</txtProductVersion>
+                                <productName>MEVA</productName>
+                                <originalFilename>MEVA.exe</originalFilename>
+                            </versionInfo>
+                        </configuration>
+                    </execution>
+                </executions>
             </plugin>
         </plugins>
     </build>
